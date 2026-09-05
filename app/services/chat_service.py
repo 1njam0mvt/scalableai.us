@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Iterator, Any, Union
 import uuid
 import threading
-from config import CHATS_DATA_DIR, CAMERA_CAPTURES_DIR, MAX_CHAT_HISTORY_TURNS, GROQ_API_KEYS
+from config import CHATS_DATA_DIR, CAMERA_CAPTURES_DIR, MAX_CHAT_HISTORY_TURNS, GROQ_API_KEYS, OWNER_USERNAME
 from app.models import ChatMessage, Personalization
 from app.services.groq_service import GroqService
 from app.services.realtime_service import RealtimeGroqService
@@ -232,7 +232,12 @@ class ChatService:
         logger.info("[REALTIME] Response length: %d chars | Preview: %.120s", len(response), response)
         return response
 
-    def process_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
+    def _is_owner(self, username: Optional[str]) -> bool:
+        """Only the owner account gets personal context (learning data, past
+        chats) in prompts. Guests and every other user get a generic one."""
+        return bool(OWNER_USERNAME and username and username.strip().lower() == OWNER_USERNAME)
+
+    def process_message_stream(self, session_id: str, user_message: str, username: Optional[str] = None) -> Iterator[Union[str, Dict[str, Any]]]:
         logger.info("[GENERAL-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
         self.add_message(session_id, "user", user_message)
         self.add_message(session_id, "assistant", "")
@@ -249,7 +254,8 @@ class ChatService:
 
         try:
             for chunk in self.groq_service.stream_response(
-                question=user_message, chat_history=chat_history, key_start_index=chat_idx
+                question=user_message, chat_history=chat_history, key_start_index=chat_idx,
+                include_personal_context=self._is_owner(username),
             ):
                 if isinstance(chunk, dict):
                     yield chunk
@@ -343,7 +349,7 @@ class ChatService:
             yield {"_activity": {"event": "routing", "route": "vision"}}
             yield {"_activity": {"event": "vision_analyzing", "message": "Analyzing image..."}}
             yield {"_activity": {"event": "streaming_started", "route": "vision"}}
-            
+
             prompt = (user_message or "").replace(CAMERA_BYPASS_TOKEN, "").strip() or "What do you see in this image?"
             clean_msg = prompt or "What do you see in this image?"
 
@@ -365,14 +371,14 @@ class ChatService:
         category = CATEGORY_GENERAL
         primary_elapsed_ms = 0
         primary_method = "default"
-        
+
         if self.brain_service:
             category, primary_method, primary_elapsed_ms = self.brain_service.classify_primary(
                 user_message, chat_history, key_index=brain_idx if brain_idx is not None else 0
             )
-            
-        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}} 
-        
+
+        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}}
+
         if category == CATEGORY_CAMERA:
             yield {"_activity": {"event": "routing", "route": "camera"}}
             if imgbase64:
@@ -449,7 +455,7 @@ class ChatService:
                 if instant_response.googlesearches or instant_response.youtubesearches: action_summary.append("search")
                 if instant_response.cam: action_summary.append("camera")
                 if instant_response.reminder: action_summary.append("reminder")
-                
+
                 yield {"_activity": {"event": "actions_emitted","message": ", ".join(action_summary) or "actions"}}
                 yield {"_actions": actions}
 
@@ -498,7 +504,7 @@ class ChatService:
             self.save_chat_session(session_id)
             elapsed_scalable = time.perf_counter() - t0_scalable
             logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
-            
+
             # If it was purely a task, we are done. If mixed, we continue to regular chat generation below.
             if category == CATEGORY_TASK:
                 return
@@ -513,6 +519,7 @@ class ChatService:
                 for chunk in stream_svc.stream_response(
                     question=user_message, chat_history=chat_history, key_start_index=chat_idx,
                     extra_system_parts=extra_system_parts or None,
+                    include_personal_context=self._is_owner(username),
                 ):
                     if isinstance(chunk, dict):
                         yield chunk
@@ -557,6 +564,7 @@ class ChatService:
             for chunk in stream_svc.stream_response(
                 question=user_message, chat_history=chat_history, key_start_index=chat_idx,
                 extra_system_parts=extra_system_parts or None,
+                include_personal_context=self._is_owner(username),
             ):
                 if isinstance(chunk, dict):
                     yield chunk

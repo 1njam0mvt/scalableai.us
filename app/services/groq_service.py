@@ -308,31 +308,36 @@ class GroqService:
         chat_history: Optional[List[tuple]] = None,
         extra_system_parts: Optional[List[str]] = None,
         mode_addendum: str = "",
+        include_personal_context: bool = False,
     ) -> tuple:
 
         context = ""
         context_sources = []
         t0 = time.perf_counter()
 
-        try:
-            retriever = self.vector_store_service.get_retriever(k=5)
+        # Personal context (owner's learning data + indexed chat history) is
+        # only retrieved for the owner account. Guests and other users get a
+        # clean prompt — their name/identity never leaks into their replies.
+        if include_personal_context:
+            try:
+                retriever = self.vector_store_service.get_retriever(k=5)
 
-            context_docs = retriever.invoke(question)
+                context_docs = retriever.invoke(question)
 
-            if context_docs:
-                context = "\n".join([doc.page_content for doc in context_docs])
+                if context_docs:
+                    context = "\n".join([doc.page_content for doc in context_docs])
 
-                context_sources = [doc.metadata.get("source", "unknown") for doc in context_docs]
-                logger.info("[CONTEXT] Retrieved %d chunks from sources: %s", len(context_docs), context_sources)
+                    context_sources = [doc.metadata.get("source", "unknown") for doc in context_docs]
+                    logger.info("[CONTEXT] Retrieved %d chunks from sources: %s", len(context_docs), context_sources)
 
-            else:
-                logger.info("[CONTEXT] No relevant chunks found for query")
+                else:
+                    logger.info("[CONTEXT] No relevant chunks found for query")
 
-        except Exception as retrieval_err:
-            logger.warning("Vector store retrieval failed, using empty context: %s", retrieval_err)
+            except Exception as retrieval_err:
+                logger.warning("Vector store retrieval failed, using empty context: %s", retrieval_err)
 
-        finally:
-            _log_timing("vector_db", time.perf_counter() - t0)
+            finally:
+                _log_timing("vector_db", time.perf_counter() - t0)
 
         time_info = get_time_information()
         system_message = SCALABLE_SYSTEM_PROMPT
@@ -372,11 +377,13 @@ class GroqService:
         chat_history: Optional[List[tuple]] = None,
         key_start_index: int = 0,
         extra_system_parts: Optional[List[str]] = None,
+        include_personal_context: bool = False,
     ) -> str:
 
         try:
             prompt, messages = self._build_prompt_and_messages(
                 question, chat_history, extra_system_parts=extra_system_parts, mode_addendum=GENERAL_CHAT_ADDENDUM,
+                include_personal_context=include_personal_context,
             )
             t0 = time.perf_counter()
             result = self._invoke_llm(prompt, messages, question, key_start_index=key_start_index)
@@ -396,13 +403,16 @@ class GroqService:
         chat_history: Optional[List[tuple]] = None,
         key_start_index: int = 0,
         extra_system_parts: Optional[List[str]] = None,
+        include_personal_context: bool = False,
     ) -> Iterator[dict[str, dict[str, str]] | str]:
 
         try:
             prompt, messages = self._build_prompt_and_messages(
                 question, chat_history, extra_system_parts=extra_system_parts, mode_addendum=GENERAL_CHAT_ADDENDUM,
+                include_personal_context=include_personal_context,
             )
-            yield {"_activity": {"event": "context_retrieved", "message": "Retrieved relevant context from knowledge base"}}
+            if include_personal_context:
+                yield {"_activity": {"event": "context_retrieved", "message": "Retrieved relevant context from knowledge base"}}
             yield from self._stream_llm(prompt, messages, question, key_start_index=key_start_index)
 
         except AllGroqApisFailedError:
@@ -410,4 +420,3 @@ class GroqService:
 
         except Exception as e:
             raise Exception(f"Error streaming response from Groq: {str(e)}") from e
-        

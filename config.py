@@ -70,6 +70,9 @@ TTS_VOICE = os.getenv("TTS_VOICE", "en-GB-RyanNeural")
 TTS_RATE = os.getenv("TTS_RATE", "+22%")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 HF_API_KEY = os.getenv("HF_API_KEY", "")
+# The account whose personal context (learning data, past chats) may be
+# retrieved into prompts. Any other user/guest gets a clean, generic prompt.
+OWNER_USERNAME = os.getenv("OWNER_USERNAME", "").strip().lower()
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 MAX_CHAT_HISTORY_TURNS = 10
