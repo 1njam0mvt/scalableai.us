@@ -25,6 +25,7 @@ from app.models import (
     BugReportRequest, ChangePasswordRequest, DeleteAccountRequest,
     Project, ProjectFile, CreateProjectRequest, UpdateProjectRequest,
     UpdateProjectInstructionsRequest, AddProjectTextContentRequest,
+    Personalization,
 )
 
 RATE_LIMIT_MESSAGE = (
@@ -1261,9 +1262,22 @@ async def chat_scalable_stream(request: ChatRequest, username: str = Depends(req
                 request.session_id or "new", len(request.message), "yes" if request.imgbase64 else "no", request.message)
 
     try:
+        # Default the assistant's nickname to the signed-in user's own
+        # display_name, so each user is addressed by their name (not a
+        # global env value). The user's own nickname setting wins if set.
+        personalization = request.personalization
+        if username and not username.startswith(GUEST_USERNAME_PREFIX):
+            has_nickname = bool(personalization and (personalization.nickname or "").strip())
+            if not has_nickname:
+                profile = auth_service.get_profile(username)
+                display_name = ((profile or {}).get("display_name") or username).strip()
+                if display_name:
+                    personalization = personalization or Personalization()
+                    personalization.nickname = display_name
+
         session_id = chat_service.get_or_create_session(request.session_id)
         chunk_iter = chat_service.process_scalable_message_stream(
-            session_id, request.message, imgbase64=request.imgbase64, personalization=request.personalization,
+            session_id, request.message, imgbase64=request.imgbase64, personalization=personalization,
             username=username, project_id=request.project_id,
         )
 

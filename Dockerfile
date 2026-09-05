@@ -1,7 +1,6 @@
 FROM python:3.12-slim
 
-# System deps: build tools for packages that compile native extensions
-# (faiss, sentence-transformers' tokenizers, etc.), plus ffmpeg for
+# System deps: build tools for native extensions (faiss), plus ffmpeg for
 # any audio processing edge-tts / TTS features may need.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -10,6 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Embeddings run via the Hugging Face Inference API (HF_API_KEY env var),
+# so torch/sentence-transformers are NOT installed — this keeps the image
+# small enough for entry-level plans. requirements.txt matches this.
 # Install Python deps first so this layer is cached across code-only changes.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt

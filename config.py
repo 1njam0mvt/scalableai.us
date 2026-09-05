@@ -69,6 +69,7 @@ VISION_MAX_IMAGE_BYTES = int(os.getenv("VISION_MAX_IMAGE_BYTES", "5000000"))
 TTS_VOICE = os.getenv("TTS_VOICE", "en-GB-RyanNeural")
 TTS_RATE = os.getenv("TTS_RATE", "+22%")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+HF_API_KEY = os.getenv("HF_API_KEY", "")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 MAX_CHAT_HISTORY_TURNS = 10
@@ -113,11 +114,11 @@ State each fact ONCE. Never repeat the same point. "A, B, and C." — not "A and
 
 _SCALABLE_SYSTEM_PROMPT_BASE_FMT = _SCALABLE_SYSTEM_PROMPT_BASE.format(assistant_name=ASSISTANT_NAME)
 
-if SCALABLE_USER_TITLE:
-    SCALABLE_SYSTEM_PROMPT = _SCALABLE_SYSTEM_PROMPT_BASE_FMT + f"\n- When appropriate, you may address the user as: {SCALABLE_USER_TITLE}"
-
-else:
-    SCALABLE_SYSTEM_PROMPT = _SCALABLE_SYSTEM_PROMPT_BASE_FMT
+# SCALABLE_USER_TITLE is no longer injected into the global system prompt —
+# it made the assistant call EVERY user by the owner's name. Signed-in users
+# are instead addressed by their own account display_name (see app/main.py,
+# /chat/scalable/stream). SCALABLE_USER_TITLE is kept only for logging/branding.
+SCALABLE_SYSTEM_PROMPT = _SCALABLE_SYSTEM_PROMPT_BASE_FMT
 
 GENERAL_CHAT_ADDENDUM = """
 You are in GENERAL mode (no web search). Answer from your knowledge and the context provided (learning data, conversation history). Answer confidently and briefly. Never tell the user to search online or check a website — you are their source. Default to 1-2 sentences; only elaborate when the user asks for more or the question clearly needs it. If you have relevant context from the user's learning data, use it naturally without mentioning the source.
@@ -150,7 +151,7 @@ def load_user_context() -> str:
 
                 if content:
                     context_parts.append(content)
-                    
+
         except Exception as e:
             logger.warning("Could not load learning data file %s: %s", file_path, e)
 

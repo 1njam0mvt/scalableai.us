@@ -2,7 +2,6 @@ import json
 import logging
 from typing import List, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 
@@ -13,17 +12,33 @@ from config import (
     EMBEDDING_MODEL,
     CHUNK_SIZE,
     CHUNK_OVERLAP,
+    HF_API_KEY,
 )
 
 logger = logging.getLogger("SCALABLE")
 
+def _build_embeddings():
+    """Prefer the Hugging Face Inference API (no torch, ~2GB smaller Docker
+    image and much lower RAM). Falls back to a local model when no key is
+    configured (local dev)."""
+    if HF_API_KEY:
+        from langchain_huggingface import HuggingFaceEndpointEmbeddings
+        logger.info("[VECTOR] Embeddings via Hugging Face Inference API (%s)", EMBEDDING_MODEL)
+        return HuggingFaceEndpointEmbeddings(
+            model=EMBEDDING_MODEL,
+            huggingfacehub_api_token=HF_API_KEY,
+        )
+    logger.info("[VECTOR] HF_API_KEY not set — loading local embedding model (torch)")
+    from langchain_huggingface import HuggingFaceEmbeddings
+    return HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        model_kwargs={"device": "cpu"},
+    )
+
 class VectorStoreService:
 
     def __init__(self):
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-        )
+        self.embeddings = _build_embeddings()
 
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=CHUNK_SIZE,
