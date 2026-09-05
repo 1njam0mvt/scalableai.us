@@ -1,4 +1,4 @@
-# S.C.A.L.A.B.L.E — Just A Rather Very Intelligent System
+# ScalableAI — Just A Rather Very Intelligent System
 
 A personal AI assistant with a beautiful web UI. Talk to it, ask questions, search the web, generate images, analyze camera photos, and more. Runs completely on your own machine with one command.
 
