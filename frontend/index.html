@@ -3,12 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#050510">
-    <meta name="robots" content="index, follow">
     <title>ScalableAI | Automation &amp; Text to Speech</title>
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -1214,6 +1212,23 @@
 
             <div class="settings-divider"></div>
 
+            <h3 class="account-settings-section-title" data-i18n="memory.section_title">What Scalable remembers about
+                you</h3>
+            <p class="account-settings-danger-text" data-i18n="memory.section_sub">Scalable saves small durable notes
+                about you as you chat — like your name or preferences — so it doesn't have to ask again. You can review,
+                edit, or clear these at any time.</p>
+            <textarea id="user-memory-textarea" class="instructions-modal-textarea" rows="6"
+                placeholder="Nothing saved yet." data-i18n-placeholder="memory.empty_placeholder"></textarea>
+            <div class="account-settings-status" id="user-memory-status" style="display:none;"></div>
+            <div class="settings-memory-actions">
+                <button type="button" class="settings-action-btn" id="user-memory-save-btn"
+                    data-i18n="modal.save">Save</button>
+                <button type="button" class="settings-action-btn danger" id="user-memory-clear-btn"
+                    data-i18n="memory.clear_all">Clear all</button>
+            </div>
+
+            <div class="settings-divider"></div>
+
             <h3 class="account-settings-section-title danger" data-i18n="settings.danger_zone">Danger zone</h3>
             <p class="account-settings-danger-text" data-i18n="settings.danger_text">Deleting your account permanently
                 removes your login. Your saved
@@ -1368,6 +1383,7 @@
                 accountSettingsOverlay.style.display = 'flex';
                 requestAnimationFrame(function () { accountSettingsOverlay.classList.add('open'); });
                 if (accountSettingsBox) accountSettingsBox.focus();
+                loadUserMemory();
             }
 
             function closeAccountSettingsModal() {
@@ -1391,6 +1407,78 @@
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && accountSettingsOverlay && accountSettingsOverlay.classList.contains('open')) closeAccountSettingsModal();
             });
+
+            // ---- Memory: view / edit / clear the per-user memory notes ----
+            var userMemoryTextarea = document.getElementById('user-memory-textarea');
+            var userMemoryStatus = document.getElementById('user-memory-status');
+            var userMemorySaveBtn = document.getElementById('user-memory-save-btn');
+            var userMemoryClearBtn = document.getElementById('user-memory-clear-btn');
+            var memoryClearArmed = false;
+
+            function loadUserMemory() {
+                if (!userMemoryTextarea) return;
+                var token = getAuthToken();
+                if (!token) { userMemoryTextarea.value = ''; userMemoryTextarea.disabled = true; return; }
+                userMemoryTextarea.disabled = false;
+                fetch(API + '/memory', { headers: { 'Authorization': 'Bearer ' + token } })
+                    .then(function (r) { return r.ok ? r.json() : { content: '' }; })
+                    .then(function (data) { userMemoryTextarea.value = data.content || ''; })
+                    .catch(function () { /* leave textarea empty on failure */ });
+            }
+
+            if (userMemorySaveBtn) {
+                userMemorySaveBtn.addEventListener('click', function () {
+                    var token = getAuthToken();
+                    if (!token || !userMemoryTextarea) return;
+                    userMemorySaveBtn.disabled = true;
+                    fetch(API + '/memory', {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content: userMemoryTextarea.value })
+                    }).then(function (r) {
+                        userMemorySaveBtn.disabled = false;
+                        if (r.ok) showAccountSettingsStatus(userMemoryStatus, 'success', 'Saved.');
+                        else showAccountSettingsStatus(userMemoryStatus, 'error', 'Could not save.');
+                    }).catch(function () {
+                        userMemorySaveBtn.disabled = false;
+                        showAccountSettingsStatus(userMemoryStatus, 'error', 'Could not save.');
+                    });
+                });
+            }
+
+            if (userMemoryClearBtn) {
+                userMemoryClearBtn.addEventListener('click', function () {
+                    var token = getAuthToken();
+                    if (!token) return;
+                    if (!memoryClearArmed) {
+                        memoryClearArmed = true;
+                        userMemoryClearBtn.textContent = 'Click again to confirm';
+                        setTimeout(function () {
+                            memoryClearArmed = false;
+                            userMemoryClearBtn.textContent = (window.ScalableUIi18n && window.ScalableUIi18n.t) ? window.ScalableUIi18n.t('memory.clear_all', 'Clear all') : 'Clear all';
+                        }, 4000);
+                        return;
+                    }
+                    memoryClearArmed = false;
+                    userMemoryClearBtn.disabled = true;
+                    fetch(API + '/memory', {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    }).then(function (r) {
+                        userMemoryClearBtn.disabled = false;
+                        userMemoryClearBtn.textContent = (window.ScalableUIi18n && window.ScalableUIi18n.t) ? window.ScalableUIi18n.t('memory.clear_all', 'Clear all') : 'Clear all';
+                        if (r.ok) {
+                            if (userMemoryTextarea) userMemoryTextarea.value = '';
+                            showAccountSettingsStatus(userMemoryStatus, 'success', 'Cleared.');
+                        } else {
+                            showAccountSettingsStatus(userMemoryStatus, 'error', 'Could not clear.');
+                        }
+                    }).catch(function () {
+                        userMemoryClearBtn.disabled = false;
+                        showAccountSettingsStatus(userMemoryStatus, 'error', 'Could not clear.');
+                    });
+                });
+            }
 
             if (changePasswordBtn) {
                 changePasswordBtn.addEventListener('click', function () {

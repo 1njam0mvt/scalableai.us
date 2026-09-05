@@ -1,12 +1,13 @@
 import base64
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import List, Optional, Dict, Iterator, Any, Union
 import uuid
 import threading
-from config import CHATS_DATA_DIR, CAMERA_CAPTURES_DIR, MAX_CHAT_HISTORY_TURNS, GROQ_API_KEYS, OWNER_USERNAME
+from config import CHATS_DATA_DIR, CAMERA_CAPTURES_DIR, MAX_CHAT_HISTORY_TURNS, GROQ_API_KEYS
 from app.models import ChatMessage, Personalization
 from app.services.groq_service import GroqService
 from app.services.realtime_service import RealtimeGroqService
@@ -15,9 +16,72 @@ from app.services.decision_types import ( CATEGORY_GENERAL, CATEGORY_REALTIME, C
 from app.services.task_executor import TaskExecutor, TaskResponse
 from app.services.task_manager import TaskManager
 from app.services.vision_service import VisionService
+from app.services.user_memory_service import user_memory_service
 from app.utils.key_rotation import get_next_key_pair
 
 CAMERA_BYPASS_TOKEN = "TTCAMTOKENTT"
+
+_REMEMBER_TAG_RE = re.compile(r'\[REMEMBER:\s*(.*?)\s*\]', re.DOTALL)
+_REMEMBER_TAG_START = "[REMEMBER:"
+
+
+class RememberTagStreamFilter:
+    """
+    Wraps a stream of text chunks, holding back only what could still be
+    the start of a [REMEMBER: ...] tag and releasing everything else
+    immediately. Extracted facts are collected in self.facts; the tag
+    itself is never released to the caller — this lets Scalable save a
+    durable note about the user without it ever appearing in the visible
+    reply, even when the response streams token-by-token.
+    """
+
+    def __init__(self):
+        self._buffer = ""
+        self.facts: List[str] = []
+
+    def feed(self, chunk: str) -> str:
+        self._buffer += chunk
+        out = []
+
+        while True:
+            start_idx = self._buffer.find("[")
+            if start_idx == -1:
+                out.append(self._buffer)
+                self._buffer = ""
+                break
+
+            if start_idx > 0:
+                out.append(self._buffer[:start_idx])
+                self._buffer = self._buffer[start_idx:]
+
+            prefix_len = min(len(self._buffer), len(_REMEMBER_TAG_START))
+            if self._buffer[:prefix_len] != _REMEMBER_TAG_START[:prefix_len]:
+                out.append(self._buffer[:1])
+                self._buffer = self._buffer[1:]
+                continue
+
+            if len(self._buffer) < len(_REMEMBER_TAG_START):
+                break
+
+            close_idx = self._buffer.find("]")
+            if close_idx == -1:
+                break
+
+            full_tag = self._buffer[:close_idx + 1]
+            m = _REMEMBER_TAG_RE.match(full_tag)
+            if m:
+                fact = m.group(1).strip()
+                if fact:
+                    self.facts.append(fact)
+            self._buffer = self._buffer[close_idx + 1:]
+
+        return "".join(out)
+
+    def flush(self) -> str:
+        remaining = self._buffer
+        self._buffer = ""
+        return remaining
+
 
 LENGTH_INSTRUCTIONS = {
     "concise": "Keep replies very short — 1-2 sentences unless the user explicitly asks for more detail.",
@@ -101,6 +165,7 @@ class ChatService:
         self.vision_service = vision_service
         self.task_manager = task_manager
         self.project_service = project_service
+        self.user_memory_service = user_memory_service
         self.sessions: Dict[str, List[ChatMessage]] = {}
         # session_id -> {"project_id": str|None, "username": str|None, "title": str|None}
         self.session_meta: Dict[str, Dict[str, Optional[str]]] = {}
@@ -232,12 +297,7 @@ class ChatService:
         logger.info("[REALTIME] Response length: %d chars | Preview: %.120s", len(response), response)
         return response
 
-    def _is_owner(self, username: Optional[str]) -> bool:
-        """Only the owner account gets personal context (learning data, past
-        chats) in prompts. Guests and every other user get a generic one."""
-        return bool(OWNER_USERNAME and username and username.strip().lower() == OWNER_USERNAME)
-
-    def process_message_stream(self, session_id: str, user_message: str, username: Optional[str] = None) -> Iterator[Union[str, Dict[str, Any]]]:
+    def process_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
         logger.info("[GENERAL-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
         self.add_message(session_id, "user", user_message)
         self.add_message(session_id, "assistant", "")
@@ -254,8 +314,7 @@ class ChatService:
 
         try:
             for chunk in self.groq_service.stream_response(
-                question=user_message, chat_history=chat_history, key_start_index=chat_idx,
-                include_personal_context=self._is_owner(username),
+                question=user_message, chat_history=chat_history, key_start_index=chat_idx
             ):
                 if isinstance(chunk, dict):
                     yield chunk
@@ -334,7 +393,20 @@ class ChatService:
             except Exception as e:
                 logger.warning("[PROJECT-CHAT] Could not load project context for %s: %s", effective_project_id, e)
 
-        extra_system_parts = [p for p in (personalization_prompt, project_context) if p]
+        memory_context = None
+        if username and self.user_memory_service:
+            try:
+                notes = self.user_memory_service.read(username)
+                if notes.strip():
+                    memory_context = (
+                        "You have persistent notes about this specific user from past conversations. "
+                        "Use them naturally where relevant, without announcing that you're reading saved notes:\n"
+                        + notes.strip()
+                    )
+            except Exception as e:
+                logger.warning("[USER-MEMORY-CHAT] Could not load memory for %s: %s", username, e)
+
+        extra_system_parts = [p for p in (personalization_prompt, project_context, memory_context) if p]
 
         logger.info("[SCALABLE-STREAM] Session: %s | User: %.200s | Img: %s | Project: %s",
                     session_id[:12], user_message[:80], "yes" if imgbase64 else "no", effective_project_id or "none")
@@ -349,7 +421,7 @@ class ChatService:
             yield {"_activity": {"event": "routing", "route": "vision"}}
             yield {"_activity": {"event": "vision_analyzing", "message": "Analyzing image..."}}
             yield {"_activity": {"event": "streaming_started", "route": "vision"}}
-
+            
             prompt = (user_message or "").replace(CAMERA_BYPASS_TOKEN, "").strip() or "What do you see in this image?"
             clean_msg = prompt or "What do you see in this image?"
 
@@ -371,14 +443,14 @@ class ChatService:
         category = CATEGORY_GENERAL
         primary_elapsed_ms = 0
         primary_method = "default"
-
+        
         if self.brain_service:
             category, primary_method, primary_elapsed_ms = self.brain_service.classify_primary(
                 user_message, chat_history, key_index=brain_idx if brain_idx is not None else 0
             )
-
-        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}}
-
+            
+        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}} 
+        
         if category == CATEGORY_CAMERA:
             yield {"_activity": {"event": "routing", "route": "camera"}}
             if imgbase64:
@@ -455,7 +527,7 @@ class ChatService:
                 if instant_response.googlesearches or instant_response.youtubesearches: action_summary.append("search")
                 if instant_response.cam: action_summary.append("camera")
                 if instant_response.reminder: action_summary.append("reminder")
-
+                
                 yield {"_activity": {"event": "actions_emitted","message": ", ".join(action_summary) or "actions"}}
                 yield {"_actions": actions}
 
@@ -504,7 +576,7 @@ class ChatService:
             self.save_chat_session(session_id)
             elapsed_scalable = time.perf_counter() - t0_scalable
             logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
-
+            
             # If it was purely a task, we are done. If mixed, we continue to regular chat generation below.
             if category == CATEGORY_TASK:
                 return
@@ -514,12 +586,12 @@ class ChatService:
             stream_svc = self.realtime_service if self.realtime_service else self.groq_service
             chunk_count = 0
             t0 = time.perf_counter()
+            remember_filter = RememberTagStreamFilter()
 
             try:
                 for chunk in stream_svc.stream_response(
                     question=user_message, chat_history=chat_history, key_start_index=chat_idx,
                     extra_system_parts=extra_system_parts or None,
-                    include_personal_context=self._is_owner(username),
                 ):
                     if isinstance(chunk, dict):
                         yield chunk
@@ -529,14 +601,25 @@ class ChatService:
                         elapsed_ms = int((time.perf_counter() - t0) * 1000)
                         yield {"_activity": { "event": "first_chunk", "route": "mixed", "elapsed_ms": elapsed_ms}}
 
-                    self.sessions[session_id][-1].content += chunk
+                    clean_chunk = remember_filter.feed(chunk)
                     chunk_count += 1
+
+                    if not clean_chunk:
+                        continue
+
+                    self.sessions[session_id][-1].content += clean_chunk
 
                     if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
                         self.save_chat_session(session_id, log_timing=False)
-                    yield chunk
+                    yield clean_chunk
+
+                trailing = remember_filter.flush()
+                if trailing:
+                    self.sessions[session_id][-1].content += trailing
+                    yield trailing
             finally:
                 self.save_chat_session(session_id)
+                self._save_remembered_facts(username, remember_filter.facts)
 
             if bg_task_ids:
                 yield {"_background_tasks": bg_task_ids}
@@ -560,11 +643,11 @@ class ChatService:
             yield {"_error": "No streaming service configured"}
             return
 
+        remember_filter = RememberTagStreamFilter()
         try:
             for chunk in stream_svc.stream_response(
                 question=user_message, chat_history=chat_history, key_start_index=chat_idx,
                 extra_system_parts=extra_system_parts or None,
-                include_personal_context=self._is_owner(username),
             ):
                 if isinstance(chunk, dict):
                     yield chunk
@@ -574,16 +657,40 @@ class ChatService:
                     elapsed_ms = int((time.perf_counter() - t0) * 1000)
                     yield {"_activity": {"event": "first_chunk","route": route_name,"elapsed_ms": elapsed_ms}}
 
-                self.sessions[session_id][-1].content += chunk
+                clean_chunk = remember_filter.feed(chunk)
                 chunk_count += 1
+
+                if not clean_chunk:
+                    continue
+
+                self.sessions[session_id][-1].content += clean_chunk
                 if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
                     self.save_chat_session(session_id, log_timing=False)
-                yield chunk
+                yield clean_chunk
+
+            trailing = remember_filter.flush()
+            if trailing:
+                self.sessions[session_id][-1].content += trailing
+                yield trailing
         finally:
             self.save_chat_session(session_id)
+            self._save_remembered_facts(username, remember_filter.facts)
 
         elapsed_scalable = time.perf_counter() - t0_scalable
         logger.info("[SCALABLE-STREAM] %s flow complete in %.2fs | chunks: %d", route_name, elapsed_scalable, chunk_count)
+
+    def _save_remembered_facts(self, username: Optional[str], facts: List[str]) -> None:
+        """Persists any [REMEMBER: ...] facts the model emitted this turn.
+        Best-effort — a failure here never breaks the chat response, since
+        the reply has already been sent to the user by the time this runs."""
+        if not username or not facts:
+            return
+        for fact in facts:
+            try:
+                self.user_memory_service.append_fact(username, fact)
+            except Exception as e:
+                logger.warning("[USER-MEMORY-SAVE] Could not save fact for %s: %s", username, e)
+
 
     def set_session_meta(self, session_id: str, project_id: Optional[str] = None, username: Optional[str] = None, title: Optional[str] = None):
         """Associate a session with a project/owner. Only overwrites fields that

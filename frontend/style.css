@@ -5561,6 +5561,7 @@ input:focus-visible {
 .sidebar-project-new-btn:hover {
     color: var(--violet);
 }
+
 /* ---- site language box (legacy, removed) ---- */
 .site-lang-box {
     position: fixed;
@@ -5613,4 +5614,37 @@ input:focus-visible {
         padding: 0 28px 0 12px;
         font-size: 12px;
     }
+}
+
+/* Mobile: force text-input font-size to 16px minimum. Anything smaller
+   makes iOS Safari auto-zoom the page when the field is focused, which
+   feels broken even though the underlying layout is fine. Desktop sizes
+   (set above) are untouched. */
+@media (max-width: 640px) {
+
+    .auth-gate-field input,
+    .sidebar-history-item-rename-input,
+    .create-project-title-input,
+    .create-project-desc-input,
+    .project-ws-composer-input,
+    .instructions-modal-textarea,
+    #profile-name-input,
+    #personalization-instructions-input,
+    #message-input,
+    #bug-description-input,
+    #settings-current-password-input,
+    #settings-new-password-input,
+    #settings-delete-password-input {
+        font-size: 16px !important;
+    }
+}
+
+.settings-memory-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.settings-memory-actions .settings-action-btn {
+    flex: 1;
 }

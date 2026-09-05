@@ -25,7 +25,6 @@ from app.models import (
     BugReportRequest, ChangePasswordRequest, DeleteAccountRequest,
     Project, ProjectFile, CreateProjectRequest, UpdateProjectRequest,
     UpdateProjectInstructionsRequest, AddProjectTextContentRequest,
-    Personalization,
 )
 
 RATE_LIMIT_MESSAGE = (
@@ -554,6 +553,33 @@ async def delete_account(request: DeleteAccountRequest, authorization: Optional[
         raise HTTPException(status_code=500, detail="Could not delete account")
 
 _finance_pool = ThreadPoolExecutor(max_workers=2)
+
+@app.get("/memory")
+async def get_user_memory(username: str = Depends(require_auth)):
+    from app.services.user_memory_service import user_memory_service
+    return {"content": user_memory_service.read(username)}
+
+
+class UserMemoryUpdateRequest(BaseModel):
+    content: str
+
+
+@app.put("/memory")
+async def update_user_memory(request: UserMemoryUpdateRequest, username: str = Depends(require_auth)):
+    from app.services.user_memory_service import user_memory_service
+    ok = user_memory_service.write(username, request.content)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save memory")
+    return {"ok": True}
+
+
+@app.delete("/memory")
+async def clear_user_memory(username: str = Depends(require_auth)):
+    from app.services.user_memory_service import user_memory_service
+    ok = user_memory_service.clear(username)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not clear memory")
+    return {"ok": True}
 
 @app.get("/finance/dashboard")
 
@@ -1128,7 +1154,7 @@ async def chat_stream(request: ChatRequest, username: str = Depends(require_auth
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
 
-        chunk_iter = chat_service.process_message_stream(session_id, request.message, username=username)
+        chunk_iter = chat_service.process_message_stream(session_id, request.message)
         return StreamingResponse(
             _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, tts_voice=(request.personalization.voice if request.personalization else None)),
             media_type="text/event-stream",
@@ -1262,22 +1288,9 @@ async def chat_scalable_stream(request: ChatRequest, username: str = Depends(req
                 request.session_id or "new", len(request.message), "yes" if request.imgbase64 else "no", request.message)
 
     try:
-        # Default the assistant's nickname to the signed-in user's own
-        # display_name, so each user is addressed by their name (not a
-        # global env value). The user's own nickname setting wins if set.
-        personalization = request.personalization
-        if username and not username.startswith(GUEST_USERNAME_PREFIX):
-            has_nickname = bool(personalization and (personalization.nickname or "").strip())
-            if not has_nickname:
-                profile = auth_service.get_profile(username)
-                display_name = ((profile or {}).get("display_name") or username).strip()
-                if display_name:
-                    personalization = personalization or Personalization()
-                    personalization.nickname = display_name
-
         session_id = chat_service.get_or_create_session(request.session_id)
         chunk_iter = chat_service.process_scalable_message_stream(
-            session_id, request.message, imgbase64=request.imgbase64, personalization=personalization,
+            session_id, request.message, imgbase64=request.imgbase64, personalization=request.personalization,
             username=username, project_id=request.project_id,
         )
 

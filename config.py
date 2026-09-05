@@ -17,6 +17,7 @@ BUG_REPORTS_DIR = BASE_DIR / "database" / "bug_reports"
 ARTIFACTS_DIR = BASE_DIR / "database" / "artifacts"
 PROJECTS_DATA_DIR = BASE_DIR / "database" / "projects"
 PROJECT_FILES_DIR = BASE_DIR / "database" / "project_files"
+USER_MEMORY_DIR = BASE_DIR / "database" / "user_memory"
 
 LEARNING_DATA_DIR.mkdir(parents=True, exist_ok=True)
 CHATS_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -27,6 +28,11 @@ BUG_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 PROJECTS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
+USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+
+# Cap on a single user's memory file, to keep prompts bounded and prevent
+# unbounded disk growth per user.
+USER_MEMORY_MAX_BYTES = 20_000
 
 # Context files injected into a project's AI prompt are capped so a huge
 # upload can't blow out the model's context window or the request payload.
@@ -69,10 +75,9 @@ VISION_MAX_IMAGE_BYTES = int(os.getenv("VISION_MAX_IMAGE_BYTES", "5000000"))
 TTS_VOICE = os.getenv("TTS_VOICE", "en-GB-RyanNeural")
 TTS_RATE = os.getenv("TTS_RATE", "+22%")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+# Required in production: embeddings go through the HF Inference API so the
+# image stays small (no torch). vector_store.py imports this unconditionally.
 HF_API_KEY = os.getenv("HF_API_KEY", "")
-# The account whose personal context (learning data, past chats) may be
-# retrieved into prompts. Any other user/guest gets a clean, generic prompt.
-OWNER_USERNAME = os.getenv("OWNER_USERNAME", "").strip().lower()
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 MAX_CHAT_HISTORY_TURNS = 10
@@ -112,15 +117,18 @@ Warm, intelligent, brief. Match the user's energy. Address user by name if known
 
 === ANTI-REPETITION ===
 State each fact ONCE. Never repeat the same point. "A, B, and C." — not "A and also B and also C."
+
+=== MEMORY ===
+You can save a durable fact about this specific user so you remember it in future conversations (their name, a preference, an ongoing project, something they told you about themselves). Only do this for things worth remembering long-term — not small talk, not one-off requests, not anything sensitive (health, finances, sexuality, immigration status, etc). To save a fact, include a line by itself anywhere in your response in exactly this format: [REMEMBER: the fact, written plainly]. This line is never shown to the user — it is stripped out automatically — so never mention it, explain it, or refer to it in your visible reply. Only emit it when something genuinely new and durable comes up; most replies should have none at all.
 """
 
 
 _SCALABLE_SYSTEM_PROMPT_BASE_FMT = _SCALABLE_SYSTEM_PROMPT_BASE.format(assistant_name=ASSISTANT_NAME)
 
-# SCALABLE_USER_TITLE is no longer injected into the global system prompt —
-# it made the assistant call EVERY user by the owner's name. Signed-in users
-# are instead addressed by their own account display_name (see app/main.py,
-# /chat/scalable/stream). SCALABLE_USER_TITLE is kept only for logging/branding.
+# SCALABLE_USER_TITLE must NOT be injected into the global system prompt —
+# it made the assistant call EVERY user by the owner's name. Users are
+# addressed via per-user memory notes (user_memory_service) or their own
+# personalization.nickname instead.
 SCALABLE_SYSTEM_PROMPT = _SCALABLE_SYSTEM_PROMPT_BASE_FMT
 
 GENERAL_CHAT_ADDENDUM = """
