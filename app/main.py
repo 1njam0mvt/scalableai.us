@@ -1451,7 +1451,15 @@ async def cookie_consent_script():
     )
 
 @app.get("/sitemap.xml", include_in_schema=False)
-async def sitemap_xml():
+async def sitemap_xml(request: Request):
+    host = (request.url.hostname or "").lower()
+    if host.endswith("onrender.com"):
+        # No sitemap for the render.com preview URL.
+        return Response(
+            content="<!-- sitemap not served on this host -->",
+            media_type="application/xml",
+            headers={"Cache-Control": "no-cache, must-revalidate", "X-Robots-Tag": "noindex"},
+        )
     return FileResponse(
         _public_dir / "sitemap.xml",
         media_type="application/xml",
@@ -1459,7 +1467,16 @@ async def sitemap_xml():
     )
 
 @app.get("/robots.txt", include_in_schema=False)
-async def robots_txt():
+async def robots_txt(request: Request):
+    # The *.onrender.com deployment URL must stay out of search indexes —
+    # only the real domain (scalableai.us) is crawlable.
+    host = (request.url.hostname or "").lower()
+    if host.endswith("onrender.com"):
+        return Response(
+            content="User-agent: *\nDisallow: /\n",
+            media_type="text/plain",
+            headers={"Cache-Control": "no-cache, must-revalidate", "X-Robots-Tag": "noindex"},
+        )
     return FileResponse(
         _public_dir / "robots.txt",
         media_type="text/plain",
