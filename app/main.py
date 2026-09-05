@@ -1128,7 +1128,7 @@ async def chat_stream(request: ChatRequest, username: str = Depends(require_auth
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
 
-        chunk_iter = chat_service.process_message_stream(session_id, request.message)
+        chunk_iter = chat_service.process_message_stream(session_id, request.message, username=username)
         return StreamingResponse(
             _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, tts_voice=(request.personalization.voice if request.personalization else None)),
             media_type="text/event-stream",
