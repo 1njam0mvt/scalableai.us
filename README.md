@@ -2,7 +2,7 @@
 
 A personal AI assistant with a beautiful web UI. Talk to it, ask questions, search the web, generate images, analyze camera photos, and more. Runs completely on your own machine with one command.
 
-**Quick start:** `pip install -r requirements.txt` → add your `GROQ_API_KEY` to `.env` → `python run.py` → open http://localhost:8000
+**Quick start:** `pip install -r requirements.txt` → add your `GROQ_API_KEY` to `.env` → `python run.py` → open https://www.scalableai.us/
 
 ## Features
 
@@ -232,6 +232,6 @@ Run `edge-tts --list-voices` to see all available TTS voices.
 - Instagram: [@vtinjun](https://www.instagram.com/vtinjun/)
 - Telegram: [t.me/Injunvt](https://t.me/Injunvt)
 - YouTube: [InjunV](https://youtube.com/@injunv?si=1mowOaF3YZd4gvTn)
-- Scale for Everyone: [jarvis4everyone.com](https://jarvis4everyone.com)
+- Scale for Everyone: [ScalableAI](https://www.scalableai.us/)
 
-`python run.py` → http://localhost:8000
+`python run.py` → https://www.scalableai.us/
