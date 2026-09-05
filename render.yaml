@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: scalableai
+    runtime: docker
+    plan: starter  # bump if you need more RAM (torch/sentence-transformers are memory-hungry)
+    region: oregon  # pick whichever region is closest to your users
+    autoDeploy: true
+    healthCheckPath: /health
+    disk:
+      name: scalableai-data
+      mountPath: /app/database
+      sizeGB: 5  # holds chats, users, projects, vector store, uploads — grow as needed
+    envVars:
+      - key: RENDER
+        value: "true"
+      - key: GROQ_API_KEY
+        sync: false  # set manually in Render dashboard — never commit real keys
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: GROQ_BRAIN_MODEL
+        sync: false
+      - key: INTENT_CLASSIFY_MODEL
+        sync: false
+      - key: GROQ_VISION_MODEL
+        sync: false
+      - key: FMP_API_KEY
+        sync: false
+      - key: POLLINATIONS_API_KEY
+        sync: false
+      - key: TASK_EXECUTION_TIMEOUT
+        sync: false
+      - key: VISION_MAX_IMAGE_BYTES
+        sync: false
+      - key: TTS_VOICE
+        sync: false
+      - key: TTS_RATE
+        sync: false
+      - key: ASSISTANT_NAME
+        sync: false
+      - key: SCALABLE_USER_TITLE
+        sync: false
+      - key: SCALABLE_OWNER_NAME
+        sync: false

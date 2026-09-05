@@ -1,0 +1,78 @@
+/* In-header page-language switcher (site UI language — separate from
+   the in-app "Response language" AI setting). Sits in the header-right
+   row, in the same spot the old online/offline status badge used to.
+   Uses the app's own theme tokens (defined in style.css) so it follows
+   dark/light mode automatically instead of hardcoding one palette. */
+#ui-lang-switcher {
+    position: relative;
+    display: inline-flex;
+    font-family: inherit;
+}
+
+/* Fallback only: used if the header slot isn't present on a page. */
+#ui-lang-switcher.ui-lang-switcher-floating {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 9999;
+}
+
+#ui-lang-switcher-btn {
+    background: var(--bg-2, rgba(255, 255, 255, 0.06));
+    color: var(--ink-0, #f5f5f7);
+    border: 1px solid var(--line-strong, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+#ui-lang-switcher-btn:hover {
+    border-color: var(--violet, #9c6bff);
+    background: var(--bg-3, rgba(255, 255, 255, 0.1));
+}
+
+#ui-lang-switcher-menu {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 6px;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--float-glass, rgba(16, 16, 20, 0.98));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--line-strong, rgba(255, 255, 255, 0.12));
+    border-radius: var(--r-md, 10px);
+    min-width: 150px;
+    box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.4));
+    z-index: 9999;
+}
+
+#ui-lang-switcher-menu a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 6px;
+    color: var(--ink-1, #d0d0d6);
+    text-decoration: none;
+    font-size: 13px;
+}
+
+#ui-lang-switcher-menu a:hover {
+    background: var(--bg-2, rgba(255, 255, 255, 0.08));
+    color: var(--ink-0, #fff);
+}
+
+#ui-lang-switcher-menu li.ui-lang-current a {
+    color: var(--ink-0, #fff);
+    font-weight: 600;
+    background: var(--accent-soft, rgba(156, 107, 255, 0.18));
+}
+
+@media (max-width: 600px) {
+    #ui-lang-switcher.ui-lang-switcher-floating {
+        top: 8px;
+        right: 8px;
+    }
+}

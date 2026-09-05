@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScalableAI Terms of Use: AI Chatbot and Assistant</title>
+    <meta name="description"
+        content="Read the ScalableAI Terms of Use for our AI chatbot and personal assistant, including acceptable use, AI-generated content, accounts, and service limitations." />
+    <link rel="canonical" href="https://scalableai.com/terms.html" />
+    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <meta name="robots" content="noindex, follow" />
+    <style>
+        :root {
+            --bg-0: #09090b;
+            --bg-1: #0f0f12;
+            --bg-2: #16161a;
+            --line: rgba(255, 255, 255, 0.06);
+            --line-strong: rgba(255, 255, 255, 0.12);
+            --ink-0: #f5f5f7;
+            --ink-1: #b4b4bd;
+            --ink-2: #82828d;
+            --violet: #9c6bff;
+            --cyan: #4cd6e9;
+            --accent-grad: linear-gradient(135deg, var(--violet), var(--cyan));
+            --accent-line: rgba(156, 107, 255, 0.32);
+            --r-pill: 999px;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-0);
+            color: var(--ink-0);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--violet);
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            padding: 0 48px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 0;
+        }
+
+        header .wrap {
+            width: 100%;
+            max-width: none;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+            align-items: center;
+            gap: 20px;
+            padding-left: 32px;
+            padding-right: 32px;
+        }
+
+        .site-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            order: 2;
+            justify-self: center;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .site-nav a {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            white-space: nowrap;
+            padding: 7px 10px;
+            border-radius: 6px;
+            transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
+        }
+
+        .site-nav a:hover,
+        .site-nav a[aria-current="page"] {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .site-nav a:hover {
+            transform: translateY(-1px);
+        }
+
+        .site-nav a+a {
+            border-left: 1px solid rgba(255, 255, 255, 0.18);
+            padding-left: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 17px;
+            text-decoration: none;
+            color: var(--ink-0);
+        }
+
+        .brand img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .back-link {
+            font-size: 14.5px;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            padding: 8px 12px;
+            white-space: nowrap;
+            transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+            order: 3;
+            justify-self: end;
+        }
+
+        .back-link:hover {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .brand {
+            order: 1;
+            justify-self: start;
+        }
+
+        .notice {
+            margin: 32px 0;
+            padding: 16px 18px;
+            background: var(--bg-1);
+            border: 1px solid var(--accent-line);
+            border-radius: 12px;
+            font-size: 13.5px;
+            color: var(--ink-1);
+            line-height: 1.6;
+        }
+
+        main {
+            padding: 20px 0 80px;
+        }
+
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 32px 0;
+        }
+
+        .footer-row,
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-row {
+            justify-content: space-between;
+        }
+
+        .footer-links a {
+            color: var(--ink-1);
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--ink-0);
+        }
+
+        .footer-disclaimer,
+        .footer-copy {
+            color: var(--ink-2);
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        .footer-disclaimer {
+            margin: 20px 0 0;
+        }
+
+        .footer-copy {
+            margin: 14px 0 0;
+        }
+
+        .cookie-banner {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            max-width: 900px;
+            padding: 18px 20px;
+            background: #17171c;
+            border: 1px solid var(--line-strong);
+            border-radius: 12px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .cookie-banner[hidden] {
+            display: none;
+        }
+
+        .cookie-banner-copy {
+            flex: 1;
+        }
+
+        .cookie-banner-copy strong {
+            color: var(--ink-0);
+            font-size: 14px;
+        }
+
+        .cookie-banner-copy p {
+            margin: 5px 0 0;
+            color: var(--ink-1);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .cookie-banner-copy a {
+            color: var(--ink-0);
+        }
+
+        .cookie-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .cookie-banner-actions button {
+            padding: 9px 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--ink-0);
+            cursor: pointer;
+            font: inherit;
+            font-size: 12.5px;
+        }
+
+        .cookie-banner-actions button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .cookie-banner-actions .cookie-accept {
+            background: var(--ink-0);
+            color: var(--bg-0);
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                right: 12px;
+                bottom: 12px;
+                left: 12px;
+                display: block;
+            }
+
+            .cookie-banner-actions {
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin: 24px 0 8px;
+        }
+
+        .updated {
+            color: var(--ink-2);
+            font-size: 13.5px;
+            margin: 0 0 32px;
+        }
+
+        h2 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 36px 0 12px;
+        }
+
+        p,
+        li {
+            font-size: 15px;
+            line-height: 1.75;
+            color: var(--ink-1);
+        }
+
+        ul {
+            padding-left: 22px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        strong {
+            color: var(--ink-0);
+        }
+
+        footer {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(22, 22, 28, 0.72), rgba(9, 9, 11, 0.98));
+        }
+
+        footer::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(90deg, rgba(76, 214, 233, 0.05), transparent 45%, rgba(156, 107, 255, 0.06));
+        }
+
+        footer .wrap {
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-links a {
+            font-size: 14.5px;
+        }
+
+        .cookie-banner {
+            left: 50%;
+            right: auto;
+            bottom: 28px;
+            width: min(calc(100% - 48px), 920px);
+            max-width: none;
+            transform: translateX(-50%);
+            padding: 24px 28px;
+        }
+
+        .cookie-banner-copy strong {
+            font-size: 16px;
+        }
+
+        .cookie-banner-copy p,
+        .cookie-banner-actions button {
+            font-size: 14px;
+        }
+
+        .cookie-banner-actions button {
+            padding: 11px 15px;
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                width: calc(100% - 24px);
+                bottom: 12px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="wrap">
+            <a href="/" class="brand">
+                ScalableAI
+            </a>
+            <nav class="site-nav" aria-label="Public pages">
+                <a href="/features.html">Features</a>
+                <a href="/faq.html">FAQ</a>
+                <a href="/terms.html" aria-current="page">Terms</a>
+                <a href="/privacy.html">Privacy</a>
+            </nav>
+            <a href="/" class="back-link">← Back to home</a>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <h1>Terms of Use</h1>
+        <p class="updated">Last updated: September 2, 2026</p>
+
+        <a href="#" <strong>Template notice:</strong> This is a standard starting template, not a finished legal
+            document.
+            Every bracketed section — company name, jurisdiction, contact details, age requirements — needs to be
+            filled in and reviewed by a qualified lawyer before this page is relied on as your actual Terms of Use.
+            </div>
+
+            <h2>1. Acceptance of Terms</h2>
+            <p>
+                By accessing or using ScalableAI (the "Service"), operated by ScalableAI ("we," "us," or "our"), you
+                agree to be bound by these Terms of Use ("Terms"). If you do not agree to these Terms, do not use the
+                Service.
+            </p>
+
+            <h2>2. Description of Service</h2>
+            <p>
+                ScalableAI is an AI-powered chat assistant that can hold conversations, generate images, open websites,
+                play media, and analyze camera input, among other features. Some features are available without an
+                account as a limited free preview; full access requires creating an account.
+            </p>
+
+            <h2>3. Eligibility</h2>
+            <p>
+                You must be at least [13/16/18 — choose based on your jurisdiction and legal advice] years old to use
+                the Service. By using the Service, you represent that you meet this requirement.
+            </p>
+
+            <h2>4. Accounts</h2>
+            <p>
+                When you create an account, you're responsible for maintaining the confidentiality of your login
+                credentials and for all activity under your account. Notify us immediately of any unauthorized use of
+                your account at 1njam0mvt@scalableai.us.
+            </p>
+
+            <h2>5. Acceptable Use</h2>
+            <p>You agree not to use the Service to:</p>
+            <ul>
+                <li>Generate or request content that is illegal, harmful, or exploitative, including content that
+                    sexualizes minors in any way.</li>
+                <li>Attempt to bypass, disable, or circumvent safety features or usage limits of the Service.</li>
+                <li>Use automated means (bots, scripts) to interact with the Service outside of normal, intended human
+                    use, including the free preview feature.</li>
+                <li>Impersonate any person or entity, or misrepresent your affiliation with any person or entity.</li>
+                <li>Use the Service to violate any applicable law or regulation.</li>
+            </ul>
+
+            <h2>6. AI-Generated Content</h2>
+            <p>
+                ScalableAI uses artificial intelligence to generate text and image responses. AI-generated content may
+                be
+                inaccurate, incomplete, or inappropriate at times. You are responsible for evaluating the accuracy and
+                suitability of any content before relying on it. We do not guarantee that responses will be error-free.
+            </p>
+
+            <h2>7. Free Preview / Anonymous Use</h2>
+            <p>
+                The Service may allow a limited number of messages without creating an account. This preview is subject
+                to usage limits, may be modified or removed at any time, and is provided for evaluation purposes only.
+                Data from anonymous preview sessions is handled as described in our <a href="/privacy.html">Privacy
+                    Policy</a>.
+            </p>
+
+            <h2>8. Intellectual Property</h2>
+            <p>
+                The Service, including its design, branding, and underlying software, is owned by ScalableAI and
+                protected by applicable intellectual property laws. You retain rights to content you submit, subject to
+                the license you grant us in Section 9.
+            </p>
+
+            <h2>9. License to Your Content</h2>
+            <p>
+                By submitting messages, prompts, or other content to the Service, you grant us a limited, non-exclusive
+                license to process that content for the purpose of operating and improving the Service, as described in
+                our Privacy Policy.
+            </p>
+
+            <h2>10. Termination</h2>
+            <p>
+                We may suspend or terminate your access to the Service at any time, with or without notice, for conduct
+                that violates these Terms or is otherwise harmful to the Service or other users.
+            </p>
+
+            <h2 id="disclaimer">11. Disclaimer of Warranties</h2>
+            <p>
+                The Service is provided "as is" and "as available," without warranties of any kind, express or implied,
+                including but not limited to accuracy, reliability, or fitness for a particular purpose.
+            </p>
+
+            <h2>12. Limitation of Liability</h2>
+            <p>
+                To the maximum extent permitted by law, ScalableAI shall not be liable for any indirect, incidental,
+                special, or consequential damages arising from your use of the Service.
+            </p>
+
+            <h2>13. Changes to These Terms</h2>
+            <p>
+                We may update these Terms from time to time. Continued use of the Service after changes take effect
+                constitutes acceptance of the revised Terms.
+            </p>
+
+            <h2>14. Governing Law</h2>
+            <p>
+                These Terms are governed by the laws of the United States, without regard to conflict-of-law principles.
+            </p>
+
+            <h2>15. Contact</h2>
+            <p>
+                Questions about these Terms can be sent to 1njam0mvt@scalableai.us.
+            </p>
+    </main>
+
+    <footer>
+        <div class="wrap">
+            <div class="footer-row">
+                <a href="/" class="brand">ScalableAI</a>
+                <nav class="footer-links" aria-label="Footer links">
+                    <a href="/privacy.html#learn-more">Contact us</a><a href="/faq.html">Help Center</a><a
+                        href="/terms.html#disclaimer">Disclaimer</a><a href="/terms.html">Terms</a><a
+                        href="/privacy.html">Privacy</a><a href="#"
+                        onclick="window.scalableManageCookies(); return false;">Manage cookies</a>
+                </nav>
+            </div>
+            <p class="footer-disclaimer">ScalableAI provides AI-generated information for general purposes only. Do not
+                rely on its responses as professional, financial, medical, or legal advice.</p>
+            <p class="footer-copy">© <span class="copyright-year"></span> ScalableAI. All rights reserved.</p>
+        </div>
+    </footer>
+    <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
+    <script src="/cookie-consent.js"></script>
+</body>
+
+</html>

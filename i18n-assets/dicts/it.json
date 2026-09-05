@@ -1,0 +1,20 @@
+{
+    "auth.kicker": "ACCESSO PRIVATO",
+    "auth.welcome": "Benvenuto",
+    "auth.signin_sub": "Accedi per continuare",
+    "auth.username_label": "Nome utente",
+    "auth.username_placeholder": "iltuonome",
+    "auth.email_label": "E-mail",
+    "auth.email_placeholder": "tu@esempio.com",
+    "auth.displayname_label": "Nome visualizzato (facoltativo)",
+    "auth.displayname_placeholder": "Come Scalable ti chiama",
+    "auth.password_label": "Password",
+    "auth.password_placeholder": "Almeno 8 caratteri",
+    "auth.signin_btn": "Accedi",
+    "auth.no_account": "Non hai un account?",
+    "auth.signup_btn": "Registrati",
+    "sidebar.new_chat": "Nuova chat",
+    "sidebar.chats": "Chat",
+    "sidebar.projects": "Progetti",
+    "sidebar.artifacts": "Artefatti"
+}

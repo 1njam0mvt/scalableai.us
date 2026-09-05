@@ -1,0 +1,20 @@
+{
+    "auth.kicker": "비공개 액세스",
+    "auth.welcome": "환영합니다",
+    "auth.signin_sub": "계속하려면 로그인하세요",
+    "auth.username_label": "사용자 이름",
+    "auth.username_placeholder": "사용자 이름",
+    "auth.email_label": "이메일",
+    "auth.email_placeholder": "you@example.com",
+    "auth.displayname_label": "표시 이름 (선택 사항)",
+    "auth.displayname_placeholder": "Scalable이 당신을 부를 이름",
+    "auth.password_label": "비밀번호",
+    "auth.password_placeholder": "8자 이상",
+    "auth.signin_btn": "로그인",
+    "auth.no_account": "계정이 없으신가요?",
+    "auth.signup_btn": "회원가입",
+    "sidebar.new_chat": "새 채팅",
+    "sidebar.chats": "채팅",
+    "sidebar.projects": "프로젝트",
+    "sidebar.artifacts": "아티팩트"
+}

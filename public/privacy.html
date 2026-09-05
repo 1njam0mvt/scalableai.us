@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScalableAI Privacy Policy: AI Chatbot Data and Cookies</title>
+    <meta name="description"
+        content="Read the ScalableAI Privacy Policy to learn how our AI chatbot and personal assistant handle account data, chat content, camera images, local storage, and cookies." />
+    <link rel="canonical" href="https://scalableai.com/privacy.html" />
+    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <meta name="robots" content="index, follow" />
+    <style>
+        :root {
+            --bg-0: #09090b;
+            --bg-1: #0f0f12;
+            --bg-2: #16161a;
+            --line: rgba(255, 255, 255, 0.06);
+            --line-strong: rgba(255, 255, 255, 0.12);
+            --ink-0: #f5f5f7;
+            --ink-1: #b4b4bd;
+            --ink-2: #82828d;
+            --violet: #9c6bff;
+            --cyan: #4cd6e9;
+            --accent-line: rgba(156, 107, 255, 0.32);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-0);
+            color: var(--ink-0);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--violet);
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            padding: 0 48px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 0;
+        }
+
+        header .wrap {
+            width: 100%;
+            max-width: none;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+            align-items: center;
+            gap: 20px;
+            padding-left: 32px;
+            padding-right: 32px;
+        }
+
+        .site-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            order: 2;
+            justify-self: center;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .site-nav a {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            white-space: nowrap;
+            padding: 7px 10px;
+            border-radius: 6px;
+            transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
+        }
+
+        .site-nav a:hover,
+        .site-nav a[aria-current="page"] {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .site-nav a:hover {
+            transform: translateY(-1px);
+        }
+
+        .site-nav a+a {
+            border-left: 1px solid rgba(255, 255, 255, 0.18);
+            padding-left: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 17px;
+            text-decoration: none;
+            color: var(--ink-0);
+        }
+
+        .brand img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .back-link {
+            font-size: 14.5px;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            padding: 8px 12px;
+            white-space: nowrap;
+            transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+            order: 3;
+            justify-self: end;
+        }
+
+        .back-link:hover {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .brand {
+            order: 1;
+            justify-self: start;
+        }
+
+        .notice {
+            margin: 32px 0;
+            padding: 16px 18px;
+            background: var(--bg-1);
+            border: 1px solid var(--accent-line);
+            border-radius: 12px;
+            font-size: 13.5px;
+            color: var(--ink-1);
+            line-height: 1.6;
+        }
+
+        main {
+            padding: 20px 0 80px;
+        }
+
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 32px 0;
+        }
+
+        .footer-row,
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-row {
+            justify-content: space-between;
+        }
+
+        .footer-links a {
+            color: var(--ink-1);
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--ink-0);
+        }
+
+        .footer-disclaimer,
+        .footer-copy {
+            color: var(--ink-2);
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        .footer-disclaimer {
+            margin: 20px 0 0;
+        }
+
+        .footer-copy {
+            margin: 14px 0 0;
+        }
+
+        .cookie-banner {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            max-width: 900px;
+            padding: 18px 20px;
+            background: #17171c;
+            border: 1px solid var(--line-strong);
+            border-radius: 12px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .cookie-banner[hidden] {
+            display: none;
+        }
+
+        .cookie-banner-copy {
+            flex: 1;
+        }
+
+        .cookie-banner-copy strong {
+            color: var(--ink-0);
+            font-size: 14px;
+        }
+
+        .cookie-banner-copy p {
+            margin: 5px 0 0;
+            color: var(--ink-1);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .cookie-banner-copy a {
+            color: var(--ink-0);
+        }
+
+        .cookie-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .cookie-banner-actions button {
+            padding: 9px 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--ink-0);
+            cursor: pointer;
+            font: inherit;
+            font-size: 12.5px;
+        }
+
+        .cookie-banner-actions button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .cookie-banner-actions .cookie-accept {
+            background: var(--ink-0);
+            color: var(--bg-0);
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                right: 12px;
+                bottom: 12px;
+                left: 12px;
+                display: block;
+            }
+
+            .cookie-banner-actions {
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin: 24px 0 8px;
+        }
+
+        .updated {
+            color: var(--ink-2);
+            font-size: 13.5px;
+            margin: 0 0 32px;
+        }
+
+        h2 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 36px 0 12px;
+        }
+
+        p,
+        li {
+            font-size: 15px;
+            line-height: 1.75;
+            color: var(--ink-1);
+        }
+
+        ul {
+            padding-left: 22px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        strong {
+            color: var(--ink-0);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 28px;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            color: var(--ink-1);
+        }
+
+        th {
+            color: var(--ink-0);
+            font-weight: 700;
+        }
+
+        footer {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(22, 22, 28, 0.72), rgba(9, 9, 11, 0.98));
+        }
+
+        footer::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(90deg, rgba(76, 214, 233, 0.05), transparent 45%, rgba(156, 107, 255, 0.06));
+        }
+
+        footer .wrap {
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-links a {
+            font-size: 14.5px;
+        }
+
+        .cookie-banner {
+            left: 50%;
+            right: auto;
+            bottom: 28px;
+            width: min(calc(100% - 48px), 920px);
+            max-width: none;
+            transform: translateX(-50%);
+            padding: 24px 28px;
+        }
+
+        .cookie-banner-copy strong {
+            font-size: 16px;
+        }
+
+        .cookie-banner-copy p,
+        .cookie-banner-actions button {
+            font-size: 14px;
+        }
+
+        .cookie-banner-actions button {
+            padding: 11px 15px;
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                width: calc(100% - 24px);
+                bottom: 12px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="wrap">
+            <a href="/" class="brand">
+                ScalableAI
+            </a>
+            <nav class="site-nav" aria-label="Public pages">
+                <a href="/features.html">Features</a>
+                <a href="/faq.html">FAQ</a>
+                <a href="/terms.html">Terms</a>
+                <a href="/privacy.html" aria-current="page">Privacy</a>
+            </nav>
+            <a href="/" class="back-link">← Back to home</a>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <h1>Privacy Policy</h1>
+        <p class="updated">Last updated: September 2, 2026</p>
+
+        <div class="notice"><strong>Template notice:</strong> This is a standard starting template, not a finished legal
+            document.
+            It reflects the general data flows of the ScalableAI app as built, but every bracketed section — company
+            name, contact details, retention periods, jurisdiction-specific rights (GDPR/CCPA/etc.) — needs review by
+            a qualified lawyer before this page is relied on as your actual Privacy Policy.
+        </div>
+
+        <h2>1. Overview</h2>
+        <p>
+            This Privacy Policy explains what information ScalableAI ("we," "us," "our") collects when you use our AI
+            assistant (the "Service"), how we use it, and the choices you have.
+        </p>
+
+        <h2>2. Information We Collect</h2>
+        <table>
+            <tr>
+                <th>Category</th>
+                <th>Examples</th>
+            </tr>
+            <tr>
+                <td>Account information</td>
+                <td>Username, password (stored securely, never in plain text), account preferences</td>
+            </tr>
+            <tr>
+                <td>Chat content</td>
+                <td>Messages you send, images you upload or generate, camera images you submit for analysis</td>
+            </tr>
+            <tr>
+                <td>Usage data</td>
+                <td>IP address, approximate location derived from IP, timestamps, feature usage (e.g. which
+                    capabilities you use)</td>
+            </tr>
+            <tr>
+                <td>Anonymous preview data</td>
+                <td>Messages sent through the free, no-sign-in preview chat, tied to a randomly generated identifier
+                    stored in your browser rather than to a real identity</td>
+            </tr>
+        </table>
+
+        <h2>3. How We Use Information</h2>
+        <ul>
+            <li>To operate and provide the Service, including generating responses to your messages.</li>
+            <li>To maintain your chat history if you have an account, so conversations persist across sessions.</li>
+            <li>To enforce usage limits on the free anonymous preview and prevent abuse.</li>
+            <li>To improve the Service, including reviewing chat interactions to identify errors or safety issues.
+            </li>
+            <li>To communicate with you about your account, such as security notices.</li>
+        </ul>
+
+        <h2>4. AI Processing and Third-Party Providers</h2>
+        <p>
+            To generate responses, ScalableAI sends your messages to third-party AI infrastructure providers (for
+            example, Groq for language responses, and Pollinations for image generation). These providers process
+            your input to return a response but do not independently identify you beyond what's included in the
+            request. Their own privacy practices govern how they handle data once received; we recommend reviewing
+            [Groq's / Pollinations' / relevant provider's] privacy policy for details.
+        </p>
+
+        <h2>5. Anonymous Preview Chat</h2>
+        <p>
+            The free preview chat on our homepage does not require an account. It's associated with a random
+            identifier generated and stored in your browser's local storage, not with your name, email, or any
+            account. This data may still be processed by the AI providers described above to generate a response,
+            and may be retained for abuse-prevention and service-improvement purposes for a limited period.
+        </p>
+
+        <h2>6. Cookies and Local Storage</h2>
+        <p>
+            We use browser local storage (not third-party tracking cookies) to remember things like your anonymous
+            preview identifier, message count, and interface preferences (such as theme). This data stays on your
+            device and is used only to make the Service function correctly.
+        </p>
+
+        <h2>7. Data Sharing</h2>
+        <p>
+            We do not sell your personal information. We share data only with:
+        </p>
+        <ul>
+            <li>The AI infrastructure providers described in Section 4, to the extent necessary to generate a
+                response.</li>
+            <li>Service providers who help us operate the Service (e.g. hosting), under confidentiality obligations.
+            </li>
+            <li>Authorities, if required by law or to protect the safety of our users or the public.</li>
+        </ul>
+
+        <h2>8. Data Retention</h2>
+        <p>
+            Account chat history is retained until you delete it or delete your account. Anonymous preview data is
+            retained for [retention period — specify] for abuse-prevention purposes, after which it may be deleted
+            or anonymized further.
+        </p>
+
+        <h2>9. Your Rights and Choices</h2>
+        <ul>
+            <li>You can delete individual chats or your entire account from within the app's settings.</li>
+            <li>You can clear your browser's local storage to remove your anonymous preview identifier at any time.
+            </li>
+            <li>Depending on your location, you may have additional rights under applicable law (such as GDPR or
+                CCPA) to access, correct, or delete your personal data. Contact us at 1njam0mvt@scalableai.us to
+                exercise
+                these rights.</li>
+        </ul>
+
+        <h2>10. Children's Privacy</h2>
+        <p>
+            The Service is not directed to children under [13/16 — specify based on jurisdiction], and we do not
+            knowingly collect personal information from children under that age.
+        </p>
+
+        <h2>11. Security</h2>
+        <p>
+            We use reasonable technical and organizational measures to protect your information, including secure
+            password storage. No method of transmission or storage is completely secure, and we cannot guarantee
+            absolute security.
+        </p>
+
+        <h2>12. Changes to This Policy</h2>
+        <p>
+            We may update this Privacy Policy from time to time. Material changes will be reflected by updating the
+            "Last updated" date above.
+        </p>
+
+        <h2 id="learn-more">13. Learn More / Contact</h2>
+        <p>
+            For questions about this Privacy Policy or how your data is used, contact us at 1njam0mvt@scalableai.us. For
+            details on how a specific third-party AI provider handles data it processes on our behalf, refer to that
+            provider's own privacy documentation.
+        </p>
+    </main>
+
+    <footer>
+        <div class="wrap">
+            <div class="footer-row">
+                <a href="/" class="brand">ScalableAI</a>
+                <nav class="footer-links" aria-label="Footer links">
+                    <a href="/privacy.html#learn-more">Contact us</a><a href="/faq.html">Help Center</a><a
+                        href="/terms.html#disclaimer">Disclaimer</a><a href="/terms.html">Terms</a><a
+                        href="/privacy.html">Privacy</a><a href="#"
+                        onclick="window.scalableManageCookies(); return false;">Manage cookies</a>
+                </nav>
+            </div>
+            <p class="footer-disclaimer">ScalableAI provides AI-generated information for general purposes only. Do not
+                rely on its responses as professional, financial, medical, or legal advice.</p>
+            <p class="footer-copy">© <span class="copyright-year"></span> ScalableAI. All rights reserved.</p>
+        </div>
+    </footer>
+    <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
+    <script src="/cookie-consent.js"></script>
+</body>
+
+</html>

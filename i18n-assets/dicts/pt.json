@@ -1,0 +1,20 @@
+{
+    "auth.kicker": "ACESSO PRIVADO",
+    "auth.welcome": "Bem-vindo",
+    "auth.signin_sub": "Entre para continuar",
+    "auth.username_label": "Nome de usuário",
+    "auth.username_placeholder": "seunome",
+    "auth.email_label": "E-mail",
+    "auth.email_placeholder": "voce@exemplo.com",
+    "auth.displayname_label": "Nome de exibição (opcional)",
+    "auth.displayname_placeholder": "Como o Scalable te chama",
+    "auth.password_label": "Senha",
+    "auth.password_placeholder": "Pelo menos 8 caracteres",
+    "auth.signin_btn": "Entrar",
+    "auth.no_account": "Não tem uma conta?",
+    "auth.signup_btn": "Cadastrar-se",
+    "sidebar.new_chat": "Nova conversa",
+    "sidebar.chats": "Conversas",
+    "sidebar.projects": "Projetos",
+    "sidebar.artifacts": "Artefatos"
+}

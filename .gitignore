@@ -1,0 +1,29 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# User data — lives on Render's persistent disk in production,
+# never belongs in Git. KEEP database/vector_store (prebuilt FAISS
+# index) and database/learning_data — the Docker image needs them.
+database/*
+!database/vector_store/
+!database/learning_data/
+
+# Build artifacts (Cloudflare Pages regenerates these itself)
+dist-pages/
+node_modules/
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Editor/OS
+.vscode/
+.DS_Store

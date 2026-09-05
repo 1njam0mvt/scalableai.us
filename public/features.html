@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features — Scalable AI</title>
+    <meta name="description"
+        content="Everything Scalable AI can do: natural chat, free AI image generation, opening websites, playing music, camera analysis, and how the assistant actually works." />
+    <link rel="canonical" href="https://scalableai.us/features.html" />
+    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <style>
+        :root {
+            --bg-0: #09090b;
+            --bg-1: #0f0f12;
+            --bg-2: #16161a;
+            --line: rgba(255, 255, 255, 0.06);
+            --line-strong: rgba(255, 255, 255, 0.12);
+            --ink-0: #f5f5f7;
+            --ink-1: #b4b4bd;
+            --ink-2: #82828d;
+            --violet: #9c6bff;
+            --cyan: #4cd6e9;
+            --accent-line: rgba(156, 107, 255, 0.32);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-0);
+            color: var(--ink-0);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--violet);
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            padding: 0 48px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 0;
+        }
+
+        header .wrap {
+            width: 100%;
+            max-width: none;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+            align-items: center;
+            gap: 20px;
+            padding-left: 32px;
+            padding-right: 32px;
+        }
+
+        .site-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            order: 2;
+            justify-self: center;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .site-nav a {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            white-space: nowrap;
+            padding: 7px 10px;
+            border-radius: 6px;
+            transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
+        }
+
+        .site-nav a:hover,
+        .site-nav a[aria-current="page"] {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .site-nav a:hover {
+            transform: translateY(-1px);
+        }
+
+        .site-nav a+a {
+            border-left: 1px solid rgba(255, 255, 255, 0.18);
+            padding-left: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 17px;
+            text-decoration: none;
+            color: var(--ink-0);
+        }
+
+        .brand img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .back-link {
+            font-size: 14.5px;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            padding: 8px 12px;
+            white-space: nowrap;
+            transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+            order: 3;
+            justify-self: end;
+        }
+
+        .back-link:hover {
+            color: var(--ink-0);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .brand {
+            order: 1;
+            justify-self: start;
+        }
+
+        main {
+            padding: 40px 0 80px;
+        }
+
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 32px 0;
+        }
+
+        .footer-row,
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-row {
+            justify-content: space-between;
+        }
+
+        .footer-links a {
+            color: var(--ink-1);
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .footer-links a:hover {
+            color: var(--ink-0);
+        }
+
+        .footer-disclaimer,
+        .footer-copy {
+            color: var(--ink-2);
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        .footer-disclaimer {
+            margin: 20px 0 0;
+        }
+
+        .footer-copy {
+            margin: 14px 0 0;
+        }
+
+        .cookie-banner {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            max-width: 900px;
+            padding: 18px 20px;
+            background: #17171c;
+            border: 1px solid var(--line-strong);
+            border-radius: 12px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .cookie-banner[hidden] {
+            display: none;
+        }
+
+        .cookie-banner-copy {
+            flex: 1;
+        }
+
+        .cookie-banner-copy strong {
+            color: var(--ink-0);
+            font-size: 14px;
+        }
+
+        .cookie-banner-copy p {
+            margin: 5px 0 0;
+            color: var(--ink-1);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .cookie-banner-copy a {
+            color: var(--ink-0);
+        }
+
+        .cookie-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .cookie-banner-actions button {
+            padding: 9px 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--ink-0);
+            cursor: pointer;
+            font: inherit;
+            font-size: 12.5px;
+        }
+
+        .cookie-banner-actions button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .cookie-banner-actions .cookie-accept {
+            background: var(--ink-0);
+            color: var(--bg-0);
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                right: 12px;
+                bottom: 12px;
+                left: 12px;
+                display: block;
+            }
+
+            .cookie-banner-actions {
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 800;
+            margin: 0 0 12px;
+        }
+
+        .lead {
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--ink-1);
+            margin: 0 0 40px;
+        }
+
+        /* ---- long-form article ---- */
+        .article-section {
+            padding: 20px 0 80px;
+        }
+
+        .article {
+            max-width: none;
+            margin: 0 auto;
+        }
+
+        .article h2 {
+            font-size: clamp(24px, 3.4vw, 30px);
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            margin: 56px 0 18px;
+        }
+
+        .article h2:first-child {
+            margin-top: 0;
+        }
+
+        .article h3 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 32px 0 12px;
+            color: var(--ink-0);
+        }
+
+        .article p {
+            font-size: 15.5px;
+            line-height: 1.75;
+            color: var(--ink-1);
+            margin: 0 0 18px;
+        }
+
+        .article ul {
+            margin: 0 0 20px;
+            padding-left: 22px;
+        }
+
+        .article li {
+            font-size: 15.5px;
+            line-height: 1.75;
+            color: var(--ink-1);
+            margin-bottom: 8px;
+        }
+
+        .article strong {
+            color: var(--ink-0);
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--line);
+            padding: 20px 0;
+        }
+
+        .faq-item:first-of-type {
+            border-top: 1px solid var(--line);
+        }
+
+        .faq-item h3 {
+            margin: 0 0 8px;
+            font-size: 16.5px;
+        }
+
+        .faq-item p {
+            margin: 0;
+            font-size: 14.5px;
+        }
+
+        footer {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(22, 22, 28, 0.72), rgba(9, 9, 11, 0.98));
+        }
+
+        footer::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(90deg, rgba(76, 214, 233, 0.05), transparent 45%, rgba(156, 107, 255, 0.06));
+        }
+
+        footer .wrap {
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-links a {
+            font-size: 14.5px;
+        }
+
+        .cookie-banner {
+            left: 50%;
+            right: auto;
+            bottom: 28px;
+            width: min(calc(100% - 48px), 920px);
+            max-width: none;
+            transform: translateX(-50%);
+            padding: 24px 28px;
+        }
+
+        .cookie-banner-copy strong {
+            font-size: 16px;
+        }
+
+        .cookie-banner-copy p,
+        .cookie-banner-actions button {
+            font-size: 14px;
+        }
+
+        .cookie-banner-actions button {
+            padding: 11px 15px;
+        }
+
+        @media (max-width: 700px) {
+            .cookie-banner {
+                width: calc(100% - 24px);
+                bottom: 12px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="wrap">
+            <a href="/" class="brand">
+                ScalableAI
+            </a>
+            <nav class="site-nav" aria-label="Public pages">
+                <a href="/features.html" aria-current="page">Features</a>
+                <a href="/faq.html">FAQ</a>
+                <a href="/terms.html">Terms</a>
+                <a href="/privacy.html">Privacy</a>
+            </nav>
+            <a href="/" class="back-link">← Back to home</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="wrap">
+            <h1>What Scalable AI Can Do</h1>
+            <p class="lead">
+                A full breakdown of Scalable's capabilities, how the assistant actually works behind the scenes, and
+                real example prompts to try.
+            </p>
+        </div>
+        <section class="article-section" style="padding-top: 0;">
+            <div class="wrap article">
+                <h2>What Is Scalable AI?</h2>
+                <p>
+                    <strong>Scalable</strong> (often searched as <strong>Scalableai</strong> or <strong>Scalable
+                        AI</strong>)
+                    is a free AI chatbot and personal assistant built around one simple idea: an AI you can actually
+                    talk
+                    to, and one that gets things done rather than just answering questions. Where most AI chat tools
+                    stop
+                    at generating text, Scalable goes a step further. Ask it to open a website, generate an image, play
+                    some music, or look at what your camera sees, and it does exactly that — in the same conversation,
+                    without switching apps or tools.
+                </p>
+                <p>
+                    The name itself is a nod to what the assistant is meant to become over time. To <em>scale</em>
+                    something is to grow it in capability without losing what made it useful in the first place, and
+                    that's the design goal behind Scalable: start with a genuinely useful AI chat experience, then keep
+                    adding real, working task capabilities on top of it — image generation, browsing, media playback,
+                    camera understanding — instead of piling on features that only look good in a demo.
+                </p>
+                <p>
+                    If you've searched for <strong>"scalable meaning"</strong> expecting a dictionary definition, this
+                    is
+                    the practical version of it: an assistant designed to scale its usefulness as you use it more, not
+                    one that's locked to a single narrow task.
+                </p>
+
+                <h2>Why Build Another AI Chatbot?</h2>
+                <p>
+                    There's no shortage of AI chat tools today — general-purpose assistants, character-based roleplay
+                    bots, coding copilots, customer-service bots baked into company websites. Most of them do one thing
+                    well and stop there. A customer-service chatbot answers policy questions. A general AI chatbot holds
+                    a conversation. A coding assistant writes code. Very few combine conversation with actual task
+                    execution in a way that feels like talking to a single, coherent assistant.
+                </p>
+                <p>
+                    Scalable was built to close that gap. The goal isn't to be the most powerful language model in the
+                    world — it's to be the most <em>useful</em> one for everyday requests: "open YouTube for me," "make
+                    an image of a sunset over mountains," "play something upbeat," "what am I looking at right now?"
+                    Each
+                    of those is a different kind of task under the hood, but from your side, it's still just one
+                    conversation with one assistant.
+                </p>
+
+                <h2>Scalable and the "Jarvis AI" Idea</h2>
+                <p>
+                    A lot of people searching for <strong>Jarvis AI</strong>, <strong>real Jarvis AI</strong>, or
+                    <strong>what is Jarvis AI</strong> are really asking the same question: is there an assistant that
+                    behaves like the AI from the Iron Man films — something you can talk to naturally, that understands
+                    context, and that can actually carry out requests instead of just replying with information?
+                </p>
+                <p>
+                    No AI today has the general intelligence of the fictional Jarvis, and it's worth being upfront about
+                    that rather than overselling it. But the practical, everyday version of that idea — <strong>a
+                        conversational AI assistant that executes real tasks</strong> — is exactly what Scalable is
+                    built
+                    toward. It's a real, working step in that direction: a Jarvis-style assistant grounded in what
+                    current AI models can actually do well today, rather than a fictional promise.
+                </p>
+                <p>
+                    If you're the kind of person who's looked into <strong>"how to make real Jarvis,"</strong> Scalable
+                    is
+                    effectively a working answer to that question, built and ready to use rather than something you have
+                    to assemble yourself from scratch.
+                </p>
+
+                <h2>Core Features of Scalable AI</h2>
+
+                <h3>1. Natural AI Chat</h3>
+                <p>
+                    At its core, Scalable is a capable <strong>AI chatbot</strong> you can talk to about almost anything
+                    —
+                    quick facts, longer explanations, brainstorming, writing help, or just casual conversation. This is
+                    the foundation every other feature sits on top of: the same conversation that answers a question
+                    can,
+                    a moment later, generate an image or open a website, without you needing to switch modes or tools.
+                </p>
+
+                <h3>2. Free AI Image Generator</h3>
+                <p>
+                    Describe a scene, a character, or a concept, and Scalable generates an image from that description
+                    directly inside the chat. As a <strong>free AI image generator</strong>, it's built for quick,
+                    everyday image needs — visualizing an idea, creating a reference image, or just seeing what a
+                    description looks like rendered — without needing a separate image-generation subscription or tool.
+                </p>
+
+                <h3>3. Opens Websites for You</h3>
+                <p>
+                    Ask Scalable to open a specific website by name — "open Gmail," "open YouTube," "open Twitter" — and
+                    it resolves the request and opens the right page. It's a small feature on its own, but it's part of
+                    what separates a task-executing assistant from a purely conversational one.
+                </p>
+
+                <h3>4. Plays Music</h3>
+                <p>
+                    Tell Scalable what you're in the mood for, or name a track, and it queues something up. This keeps
+                    the assistant useful for casual, everyday requests rather than only technical or work-related ones.
+                </p>
+
+                <h3>5. Camera Analysis</h3>
+                <p>
+                    Point your device's camera at something and ask Scalable about it. It looks at the image and
+                    describes or answers questions about what it sees — useful for identifying objects, reading text in
+                    the frame, or just satisfying curiosity about something in front of you.
+                </p>
+
+                <h2>Is Scalable a Free AI Chatbot?</h2>
+                <p>
+                    Yes. Scalable has a genuinely free tier — no credit card required to start chatting, generating
+                    images, or using its task features. If you've been comparing <strong>free AI chatbot</strong>
+                    options
+                    and looking for the <strong>best free AI chatbot</strong> that does more than just hold a
+                    conversation, Scalable's combination of chat plus real task execution is the differentiator worth
+                    weighing.
+                </p>
+                <p>
+                    It's also built to be accessible: no complicated setup, no need to bring your own AI model or
+                    configure anything technical. You sign in and start talking to it the same way you'd open any chat
+                    app.
+                </p>
+
+                <h2>Built on Real AI Infrastructure — API Keys and Models</h2>
+                <p>
+                    Under the hood, Scalable is powered by real, production AI infrastructure rather than a toy demo.
+                    It uses language models accessed through providers like <strong>Groq</strong>, which offers fast
+                    inference for open models — the same kind of setup a developer would configure with their own
+                    <strong>Groq API key</strong> if they were building a similar assistant from scratch.
+                </p>
+                <p>
+                    For anyone curious about <strong>what an API key is</strong>: it's essentially a private credential
+                    that lets an application authenticate with an AI provider's servers and make requests to a model —
+                    the mechanism that lets any AI chatbot, including Scalable, actually talk to the underlying language
+                    model. If you're a developer looking for a <strong>free API key for AI models</strong> to build your
+                    own assistant, providers like Groq, and various others, offer free tiers to get started, similar to
+                    how Scalable itself is configured.
+                </p>
+                <p>
+                    You don't need to know any of this to use Scalable day-to-day — it's already configured and ready to
+                    go — but it's part of what makes the assistant a real, working piece of software rather than a
+                    simple scripted chatbot.
+                </p>
+
+                <h2>Who Is Scalable AI For?</h2>
+                <ul>
+                    <li><strong>Everyday users</strong> who want one assistant for quick questions, casual chat, opening
+                        sites, and generating the occasional image — without juggling five different apps.</li>
+                    <li><strong>Students</strong> looking for a free AI chatbot to help explain concepts, answer
+                        questions, or assist with everyday research and writing tasks.</li>
+                    <li><strong>Anyone curious about Jarvis-style assistants</strong> who wants to see what a real,
+                        working version of that idea looks like today.</li>
+                    <li><strong>Developers and technically curious users</strong> interested in how an AI assistant like
+                        this is actually built — from API keys to task routing to image generation.</li>
+                </ul>
+
+                <h2>How Scalable Compares to Other AI Chat Tools</h2>
+                <p>
+                    Most AI chatbots fall into one of two categories: general-purpose conversational models built purely
+                    for text conversation, or narrow tools built for one specific job (an image generator, a
+                    customer-service widget, a coding assistant). Scalable sits in a smaller category: an assistant that
+                    combines natural conversation with actual task execution — opening sites, generating images, playing
+                    media, reading a camera feed — in a single, ongoing chat.
+                </p>
+                <p>
+                    That doesn't make it "better" at any one of those individual jobs than a tool built purely for that
+                    purpose. A dedicated image generator with advanced controls will out-perform Scalable's image
+                    feature on fine-grained editing, for instance. What Scalable offers instead is convenience and
+                    coherence — one assistant, one conversation, several real capabilities — which is the same practical
+                    appeal behind the original idea of an AI like Jarvis.
+                </p>
+
+                <h2>How Scalable Actually Works</h2>
+                <p>
+                    It helps to understand, at a high level, what happens between typing a message and getting a
+                    result, because it explains why Scalable can hold a normal conversation one moment and generate an
+                    image or open a website the next, without you having to pick a "mode" first.
+                </p>
+                <h3>Step 1: Understanding the request</h3>
+                <p>
+                    Every message you send is first read by a routing layer whose only job is to figure out what kind of
+                    request it is. Is this a normal conversational question that just needs a reply? Or is it actually
+                    asking for a task — open a site, generate an image, play a track, look at the camera? This
+                    classification step is what lets you type in plain, natural language ("can you pull up YouTube for
+                    me?") instead of needing rigid commands.
+                </p>
+                <h3>Step 2: Routing to the right capability</h3>
+                <p>
+                    Once the request type is known, it gets routed to whichever part of the system actually handles it.
+                    A general question goes to the conversational model. A "generate an image of X" request goes to the
+                    image-generation pipeline. A "open Y for me" request goes to the task executor that resolves and
+                    opens the right link. This separation is what keeps each capability doing its job well, instead of
+                    asking a single model to be a jack-of-all-trades for everything at once.
+                </p>
+                <h3>Step 3: Executing and responding</h3>
+                <p>
+                    The relevant system runs the task — fetching a generated image, resolving a website, and so on — and
+                    the result comes back into the same conversation thread as a normal reply. From your side, it never
+                    feels like you left the chat to "use a tool"; it feels like the assistant simply did what you asked.
+                </p>
+                <h3>Step 4: Staying in context</h3>
+                <p>
+                    Because everything happens inside one ongoing chat, Scalable can carry context between different
+                    kinds of requests. You can ask a question, get an answer, then immediately ask for an image related
+                    to that answer, then ask it to open something related to both — all without repeating yourself or
+                    re-explaining what you're talking about.
+                </p>
+
+                <h2>Real Examples of What You Can Ask Scalable</h2>
+                <p>
+                    Because Scalable is a general chat assistant first, there's no fixed list of "commands" you have to
+                    memorize. That said, here are concrete examples across each capability to give a clearer sense of
+                    what a real conversation with it looks like:
+                </p>
+                <h3>Conversation and questions</h3>
+                <ul>
+                    <li>"Explain how compound interest works, simply."</li>
+                    <li>"What's a good way to structure a resignation letter?"</li>
+                    <li>"Give me a quick summary of the water cycle."</li>
+                    <li>"What's the difference between weather and climate?"</li>
+                </ul>
+                <h3>Image generation</h3>
+                <ul>
+                    <li>"Generate an image of a cabin in the snow at night."</li>
+                    <li>"Make a picture of a futuristic city skyline at sunset."</li>
+                    <li>"Create an image of a cup of coffee on a wooden desk."</li>
+                </ul>
+                <h3>Opening websites</h3>
+                <ul>
+                    <li>"Open YouTube for me."</li>
+                    <li>"Pull up Gmail."</li>
+                    <li>"Open Twitter in a new tab."</li>
+                </ul>
+                <h3>Playing music</h3>
+                <ul>
+                    <li>"Play something relaxing."</li>
+                    <li>"Play some upbeat music for working out."</li>
+                    <li>"Queue up some lo-fi to study to."</li>
+                </ul>
+                <h3>Camera analysis</h3>
+                <ul>
+                    <li>"What am I looking at right now?"</li>
+                    <li>"Can you read the text in this photo?"</li>
+                    <li>"What kind of plant is this?"</li>
+                </ul>
+
+                <h2>Getting Started with Scalable</h2>
+                <p>
+                    Getting started doesn't require any setup beyond creating an account. There's no API key to
+                    configure, no model to select, and no separate tools to connect — everything the assistant needs is
+                    already wired up on the backend.
+                </p>
+                <h3>1. Sign in</h3>
+                <p>
+                    Create an account or sign in if you already have one. This is what lets your chat history and
+                    generated content stay tied to you across sessions and devices, rather than disappearing when you
+                    close the tab.
+                </p>
+                <h3>2. Start a conversation</h3>
+                <p>
+                    Just type what's on your mind — a question, a task, or casual conversation. There's no special
+                    syntax required; Scalable is built to understand plain, everyday language.
+                </p>
+                <h3>3. Use the quick-action shortcuts</h3>
+                <p>
+                    If you're not sure what to ask, the app surfaces quick-action buttons for its core capabilities —
+                    opening a website, playing music, generating an image, asking a question, or analyzing your camera —
+                    so you can explore what it does without having to guess the right phrasing.
+                </p>
+                <h3>4. Keep the conversation going</h3>
+                <p>
+                    Because everything lives in one continuous chat, you can move between a casual question, an image
+                    request, and a task in the same conversation without starting over.
+                </p>
+
+                <h2>A Note on Safety and Responsible Use</h2>
+                <p>
+                    Scalable is built as a general-purpose assistant, not an "anything goes" tool, and that's an
+                    intentional choice rather than a limitation. Guardrails around harmful, illegal, or exploitative
+                    content exist so the assistant stays safe and useful for the widest range of people — including
+                    students, families, and anyone using it in a shared or professional setting. If you're specifically
+                    looking for an <strong>uncensored AI chatbot</strong> with no content restrictions at all, Scalable
+                    is not built for that use case, and it never will be — that's a deliberate line, not a gap we plan
+                    to
+                    close.
+                </p>
+
+                <h2>The Roadmap Behind the Name</h2>
+                <p>
+                    The word "scalable" describes a system that grows in capability without breaking what already
+                    works. That's the design philosophy behind this assistant: every new feature — image generation,
+                    website opening, music playback, camera analysis — was added without removing or weakening the core
+                    conversational experience that came before it. The plan going forward is the same: keep adding real,
+                    working capabilities on top of a stable foundation, rather than chasing every trend that shows up in
+                    the AI space.
+                </p>
+                <p>
+                    That's also the honest answer to <strong>"what is Jarvis AI"</strong> from Scalable's point of view:
+                    not a single finished product, but a direction to keep building toward — a genuinely helpful,
+                    conversational assistant that does more over time, not less.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap">
+            <div class="footer-row">
+                <a href="/" class="brand">ScalableAI</a>
+                <nav class="footer-links" aria-label="Footer links">
+                    <a href="/privacy.html#learn-more">Contact us</a><a href="/faq.html">Help Center</a><a
+                        href="/terms.html#disclaimer">Disclaimer</a><a href="/terms.html">Terms</a><a
+                        href="/privacy.html">Privacy</a><a href="#"
+                        onclick="window.scalableManageCookies(); return false;">Manage cookies</a>
+                </nav>
+            </div>
+            <p class="footer-disclaimer">ScalableAI provides AI-generated information for general purposes only. Do not
+                rely on its responses as professional, financial, medical, or legal advice.</p>
+            <p class="footer-copy">© <span class="copyright-year"></span> ScalableAI. All rights reserved.</p>
+        </div>
+    </footer>
+    <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
+    <script src="/cookie-consent.js"></script>
+</body>
+
+</html>

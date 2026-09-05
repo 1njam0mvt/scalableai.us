@@ -1,0 +1,707 @@
+import base64
+import json
+import logging
+import time
+from pathlib import Path
+from typing import List, Optional, Dict, Iterator, Any, Union
+import uuid
+import threading
+from config import CHATS_DATA_DIR, CAMERA_CAPTURES_DIR, MAX_CHAT_HISTORY_TURNS, GROQ_API_KEYS
+from app.models import ChatMessage, Personalization
+from app.services.groq_service import GroqService
+from app.services.realtime_service import RealtimeGroqService
+from app.services.brain_service import BrainService
+from app.services.decision_types import ( CATEGORY_GENERAL, CATEGORY_REALTIME, CATEGORY_CAMERA, CATEGORY_TASK, CATEGORY_MIXED, HEAVY_INTENTS, INSTANT_INTENTS)
+from app.services.task_executor import TaskExecutor, TaskResponse
+from app.services.task_manager import TaskManager
+from app.services.vision_service import VisionService
+from app.utils.key_rotation import get_next_key_pair
+
+CAMERA_BYPASS_TOKEN = "TTCAMTOKENTT"
+
+LENGTH_INSTRUCTIONS = {
+    "concise": "Keep replies very short — 1-2 sentences unless the user explicitly asks for more detail.",
+    "balanced": "Use a normal, moderate reply length — enough detail to be useful without over-explaining.",
+    "detailed": "Give thorough, detailed replies with full explanations and context, even if the user doesn't ask for it.",
+}
+
+def build_personalization_prompt(personalization: Optional[Personalization]) -> Optional[str]:
+    if not personalization:
+        return None
+
+    lines = []
+
+    nickname = (personalization.nickname or "").strip()
+    if nickname:
+        lines.append(f"- Address the user as \"{nickname}\" when it feels natural, not in every message.")
+
+    length = (personalization.length or "").strip().lower()
+    if length in LENGTH_INSTRUCTIONS:
+        lines.append(f"- {LENGTH_INSTRUCTIONS[length]}")
+
+    custom = (personalization.custom_instructions or "").strip()
+    if custom:
+        lines.append(f"- Additional instructions from the user about how they want you to behave: {custom}")
+
+    language = (personalization.language or "").strip()
+    if language and language.lower() != "english":
+        lines.append(
+            f"- CRITICAL: Respond in {language}, not English, for this entire reply — every sentence, "
+            f"including any lists or code comments in prose. Only switch back to English if the user "
+            f"writes to you in English first."
+        )
+
+    if not lines:
+        return None
+
+    return "The user has set these personalization preferences. Follow them as long as they don't conflict with your core behavior:\n" + "\n".join(lines)
+
+def _save_camera_image(img_base64: str, session_id: str) -> Optional[Path]:
+    if not img_base64 or not CAMERA_CAPTURES_DIR:
+        return None
+
+    raw = img_base64.split(",")[-1] if "," in img_base64 else img_base64
+
+    try:
+        data = base64.b64decode(raw)
+        if len(data) < 1000:
+            logger.warning("[VISION] Captured image very small (%d bytes), may be invalid", len(data))
+
+        ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        safe_id = (session_id or "").replace("/", "_")[:16] or "unknown"
+        filename = f"cam_{safe_id}_{ts}.jpg"
+        path = CAMERA_CAPTURES_DIR / filename
+        path.write_bytes(data)
+        logger.info("[VISION] Saved camera capture: %s (%d bytes) -> %s", path.name, len(data), path)
+        return path
+
+    except Exception as e:
+        logger.warning("[VISION] Failed to save camera image: %s", e)
+        return None
+
+logger = logging.getLogger("SCALABLE")
+SCALABLE_BRAIN_SEARCH_TIMEOUT = 15
+SAVE_EVERY_N_CHUNKS = 5
+
+class ChatService:
+    def __init__(
+        self,
+        groq_service: GroqService,
+        realtime_service: Optional[RealtimeGroqService] = None,
+        brain_service: Optional[BrainService] = None,
+        task_executor: Optional[TaskExecutor] = None,
+        vision_service: Optional[VisionService] = None,
+        task_manager: Optional[TaskManager] = None,
+        project_service=None,
+    ):
+        self.groq_service = groq_service
+        self.realtime_service = realtime_service
+        self.brain_service = brain_service
+        self.task_executor = task_executor
+        self.vision_service = vision_service
+        self.task_manager = task_manager
+        self.project_service = project_service
+        self.sessions: Dict[str, List[ChatMessage]] = {}
+        # session_id -> {"project_id": str|None, "username": str|None, "title": str|None}
+        self.session_meta: Dict[str, Dict[str, Optional[str]]] = {}
+        self._save_lock = threading.Lock()
+
+    def load_session_from_disk(self, session_id: str) -> bool:
+        safe_session_id = session_id.replace("/", "_").replace("\\", "_")
+        filename = f"chat_{safe_session_id}.json"
+        filepath = CHATS_DATA_DIR / filename
+
+        if not filepath.exists():
+            return False
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                chat_dict = json.load(f)
+
+            messages = []
+            for msg in chat_dict.get("messages", []):
+                if not isinstance(msg, dict):
+                    continue
+                role = msg.get("role")
+                role = role if role in ("user", "assistant") else "user"
+                content = msg.get("content")
+                content = content if isinstance(content, str) else str(content or "")
+                messages.append(ChatMessage(role=role, content=content))
+
+            self.sessions[session_id] = messages
+            self.session_meta[session_id] = {
+                "project_id": chat_dict.get("project_id"),
+                "username": chat_dict.get("username"),
+                "title": chat_dict.get("title"),
+            }
+            return True
+
+        except Exception as e:
+            logger.warning("Failed to load session %s from disk: %s", session_id, e)
+            return False
+
+    def validate_session_id(self, session_id: str) -> bool:
+        if not session_id or not session_id.strip():
+            return False
+        if "\0" in session_id:
+            return False
+        if ".." in session_id or "/" in session_id or "\\" in session_id:
+            return False
+        if len(session_id) > 255:
+            return False
+        return True
+
+    def get_or_create_session(self, session_id: Optional[str] = None) -> str:
+        t0 = time.perf_counter()
+        if not session_id:
+            new_session_id = str(uuid.uuid4())
+            self.sessions[new_session_id] = []
+            logger.info("[TIMING] session_get_or_create: %.3fs (new)", time.perf_counter() - t0)
+            return new_session_id
+
+        if not self.validate_session_id(session_id):
+            raise ValueError(
+                f"Invalid session_id format: {session_id}. Session ID must be non-empty, "
+                "not contain path traversal characters, and be under 255 characters."
+            )
+
+        if session_id in self.sessions:
+            logger.info("[TIMING] session_get_or_create: %.3fs (memory)", time.perf_counter() - t0)
+            return session_id
+
+        if self.load_session_from_disk(session_id):
+            logger.info("[TIMING] session_get_or_create: %.3fs (disk)", time.perf_counter() - t0)
+            return session_id
+
+        self.sessions[session_id] = []
+        logger.info("[TIMING] session_get_or_create: %.3fs (new_id)", time.perf_counter() - t0)
+        return session_id
+
+    def add_message(self, session_id: str, role: str, content: str):
+        if session_id not in self.sessions:
+            self.sessions[session_id] = []
+        self.sessions[session_id].append(ChatMessage(role=role, content=content))
+
+    def get_chat_history(self, session_id: str) -> List[ChatMessage]:
+        return self.sessions.get(session_id, [])
+
+    def format_history_for_llm(self, session_id: str, exclude_last: bool = False) -> List[tuple]:
+        messages = self.get_chat_history(session_id)
+        history = []
+        messages_to_process = messages[:-1] if exclude_last and messages else messages
+
+        i = 0
+        while i < len(messages_to_process) - 1:
+            user_msg = messages_to_process[i]
+            ai_msg = messages_to_process[i + 1]
+
+            if user_msg.role == "user" and ai_msg.role == "assistant":
+                u_content = user_msg.content if isinstance(user_msg.content, str) else str(user_msg.content or "")
+                a_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content or "")
+                history.append((u_content, a_content))
+                i += 2
+            else:
+                i += 1
+
+        if len(history) > MAX_CHAT_HISTORY_TURNS:
+            history = history[-MAX_CHAT_HISTORY_TURNS:]
+        return history
+
+    def process_message(self, session_id: str, user_message: str) -> str:
+        logger.info("[GENERAL] Session: %s | User: %.200s", session_id[:12], user_message)
+        self.add_message(session_id, "user", user_message)
+        chat_history = self.format_history_for_llm(session_id, exclude_last=True)
+        logger.info("[GENERAL] History pairs sent to LLM: %d", len(chat_history))
+        _, chat_idx = get_next_key_pair(len(GROQ_API_KEYS), need_brain=False)
+        response = self.groq_service.get_response(question=user_message,chat_history=chat_history,key_start_index=chat_idx)
+        self.add_message(session_id, "assistant", response)
+        logger.info("[GENERAL] Response length: %d chars | Preview: %.120s", len(response), response)
+        return response
+
+    def process_realtime_message(self, session_id: str, user_message: str) -> str:
+        if not self.realtime_service:
+            raise ValueError("Realtime service is not initialized. Cannot process realtime queries.")
+
+        logger.info("[REALTIME] Session: %s | User: %.200s", session_id[:12], user_message)
+        self.add_message(session_id, "user", user_message)
+        chat_history = self.format_history_for_llm(session_id, exclude_last=True)
+        logger.info("[REALTIME] History pairs sent to LLM: %d", len(chat_history))
+        _, chat_idx = get_next_key_pair(len(GROQ_API_KEYS), need_brain=False)
+        response = self.realtime_service.get_response(question=user_message, chat_history=chat_history, key_start_index=chat_idx)
+        self.add_message(session_id, "assistant", response)
+        logger.info("[REALTIME] Response length: %d chars | Preview: %.120s", len(response), response)
+        return response
+
+    def process_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
+        logger.info("[GENERAL-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
+        self.add_message(session_id, "user", user_message)
+        self.add_message(session_id, "assistant", "")
+        chat_history = self.format_history_for_llm(session_id, exclude_last=True)
+        logger.info("[GENERAL-STREAM] History pairs sent to LLM: %d", len(chat_history))
+
+        yield {"_activity": {"event": "query_detected", "message": user_message}}
+        yield {"_activity": {"event": "routing", "route": "general"}}
+        yield {"_activity": {"event": "streaming_started", "route": "general"}}
+
+        _, chat_idx = get_next_key_pair(len(GROQ_API_KEYS), need_brain=False)
+        chunk_count = 0
+        t0 = time.perf_counter()
+
+        try:
+            for chunk in self.groq_service.stream_response(
+                question=user_message, chat_history=chat_history, key_start_index=chat_idx
+            ):
+                if isinstance(chunk, dict):
+                    yield chunk
+                    continue
+
+                if chunk_count == 0:
+                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                    yield {"_activity": {"event": "first_chunk", "route": "general", "elapsed_ms": elapsed_ms}}
+
+                self.sessions[session_id][-1].content += chunk
+                chunk_count += 1
+
+                if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                    self.save_chat_session(session_id, log_timing=False)
+                yield chunk
+        finally:
+            final_response = self.sessions[session_id][-1].content
+            logger.info("[GENERAL-STREAM] Completed | Chunks: %d | Response length: %d chars",  chunk_count, len(final_response))
+            self.save_chat_session(session_id)
+
+    def process_realtime_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
+        if not self.realtime_service:
+            raise ValueError("Realtime service is not initialized.")
+
+        logger.info("[REALTIME-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
+        self.add_message(session_id, "user", user_message)
+        self.add_message(session_id, "assistant", "")
+        chat_history = self.format_history_for_llm(session_id, exclude_last=True)
+        logger.info("[REALTIME-STREAM] History pairs sent to LLM: %d", len(chat_history))
+        yield {"_activity": {"event": "query_detected", "message": user_message}}
+        yield {"_activity": {"event": "routing", "route": "realtime"}}
+        yield {"_activity": {"event": "streaming_started", "route": "realtime"}}
+        _, chat_idx = get_next_key_pair(len(GROQ_API_KEYS), need_brain=False)
+        chunk_count = 0
+        t0 = time.perf_counter()
+
+        try:
+            for chunk in self.realtime_service.stream_response(
+                question=user_message,  chat_history=chat_history,  key_start_index=chat_idx
+            ):
+                if isinstance(chunk, dict):
+                    yield chunk
+                    continue
+
+                if chunk_count == 0:
+                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                    yield {"_activity": {"event": "first_chunk", "route": "realtime", "elapsed_ms": elapsed_ms}}
+
+                self.sessions[session_id][-1].content += chunk
+                chunk_count += 1
+
+                if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                    self.save_chat_session(session_id, log_timing=False)
+                yield chunk
+        finally:
+            final_response = self.sessions[session_id][-1].content
+            logger.info("[REALTIME-STREAM] Completed | Chunks: %d | Response length: %d chars", chunk_count, len(final_response))
+            self.save_chat_session(session_id)
+
+    def process_scalable_message_stream(self, session_id: str, user_message: str, imgbase64: Optional[str] = None, personalization: Optional[Personalization] = None, username: Optional[str] = None, project_id: Optional[str] = None) -> Iterator[Union[str, Dict[str, Any]]]:
+        t0_scalable = time.perf_counter()
+        personalization_prompt = build_personalization_prompt(personalization)
+
+        # A session is bound to whichever project it was first used with; once
+        # set it's not overridden by a later call with project_id=None, so a
+        # client resending without the field can't accidentally detach a chat.
+        effective_project_id = project_id or self.get_session_project_id(session_id)
+
+        if effective_project_id or username:
+            self.set_session_meta(session_id, project_id=effective_project_id, username=username)
+
+        project_context = None
+        if effective_project_id and self.project_service and username:
+            try:
+                project_context = self.project_service.build_context_prompt(username, effective_project_id)
+            except Exception as e:
+                logger.warning("[PROJECT-CHAT] Could not load project context for %s: %s", effective_project_id, e)
+
+        extra_system_parts = [p for p in (personalization_prompt, project_context) if p]
+
+        logger.info("[SCALABLE-STREAM] Session: %s | User: %.200s | Img: %s | Project: %s",
+                    session_id[:12], user_message[:80], "yes" if imgbase64 else "no", effective_project_id or "none")
+        self.add_message(session_id, "user", user_message)
+        self.add_message(session_id, "assistant", "")
+        chat_history = self.format_history_for_llm(session_id, exclude_last=True)
+
+        yield {"_activity": {"event": "query_detected", "message": user_message}}
+
+        if imgbase64 and CAMERA_BYPASS_TOKEN in (user_message or ""):
+            yield {"_activity": {"event": "decision", "query_type": "camera", "reasoning": "Image attached", "elapsed_ms": 0}}
+            yield {"_activity": {"event": "routing", "route": "vision"}}
+            yield {"_activity": {"event": "vision_analyzing", "message": "Analyzing image..."}}
+            yield {"_activity": {"event": "streaming_started", "route": "vision"}}
+            
+            prompt = (user_message or "").replace(CAMERA_BYPASS_TOKEN, "").strip() or "What do you see in this image?"
+            clean_msg = prompt or "What do you see in this image?"
+
+            if self.sessions[session_id]:
+                self.sessions[session_id][-2].content = clean_msg
+            _save_camera_image(imgbase64, session_id)
+
+            if self.vision_service:
+                text = self.vision_service.describe_image(imgbase64, prompt)
+            else:
+                text = "Vision is not available. Please set GROQ_API_KEY."
+
+            self.sessions[session_id][-1].content = text
+            yield text
+            self.save_chat_session(session_id)
+            return
+
+        brain_idx, chat_idx = get_next_key_pair(len(GROQ_API_KEYS), need_brain=bool(self.brain_service))
+        category = CATEGORY_GENERAL
+        primary_elapsed_ms = 0
+        primary_method = "default"
+        
+        if self.brain_service:
+            category, primary_method, primary_elapsed_ms = self.brain_service.classify_primary(
+                user_message, chat_history, key_index=brain_idx if brain_idx is not None else 0
+            )
+            
+        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}} 
+        
+        if category == CATEGORY_CAMERA:
+            yield {"_activity": {"event": "routing", "route": "camera"}}
+            if imgbase64:
+                yield {"_activity": {"event": "vision_analyzing", "message": "Analyzing image..."}}
+                yield {"_activity": {"event": "streaming_started", "route": "vision"}}
+                _save_camera_image(imgbase64, session_id)
+                if self.vision_service:
+                    text = self.vision_service.describe_image(imgbase64, user_message)
+                else:
+                    text = "Vision is not available. Please set GROQ_API_KEY."
+            else:
+                text = "Let me take a look..."
+                yield {"_actions": {"wopens": [],"plays": [],"images": [],"contents": [],
+                                     "googlesearches": [],"youtubesearches": [],
+                                     "cam": {"action": "open_and_capture","resend_message": user_message}}}
+                yield {"_activity": {"event": "actions_emitted", "message": "camera (auto-capture)"}}
+
+            self.sessions[session_id][-1].content = text
+            yield text
+            self.save_chat_session(session_id)
+            elapsed_scalable = time.perf_counter() - t0_scalable
+            logger.info("[SCALABLE-STREAM] Camera flow complete in %.2fs", elapsed_scalable)
+            return
+
+        bg_task_ids = []
+        if category in (CATEGORY_TASK, CATEGORY_MIXED):
+            jls_extract_var = {"_activity": {"event": "routing", "route": "task" if category == CATEGORY_TASK else "mixed"}}
+            yield jls_extract_var
+
+            task_types = []
+            task_elapsed_ms = 0
+            task_method = "default"
+
+            if self.brain_service:
+                task_types, task_method, task_elapsed_ms = self.brain_service.classify_task(
+                    user_message,chat_history, key_index=brain_idx if brain_idx is not None else 0
+                )
+
+            task_name = ", ".join(task_types[:3]) if task_types else "task"
+            yield {"_activity": {"event": "intent_classified","intent": task_name}}
+
+            intents = self.brain_service.extract_task_payloads( user_message,task_types,chat_history) if self.brain_service else []
+            instant_intents = [(t, p) for t, p in intents if t not in HEAVY_INTENTS]
+            heavy_intents = [(t, p) for t, p in intents if t in HEAVY_INTENTS]
+
+            instant_response = TaskResponse()
+
+            if self.task_executor and instant_intents:
+                yield {"_activity": {"event": "tasks_executing","message": "Running instant tasks..."}}
+                instant_response = self.task_executor.execute(instant_intents,chat_history)
+                yield {"_activity": {"event": "tasks_completed","message": "Instant tasks done"}}
+
+            has_instant_actions = (
+                instant_response.wopens or instant_response.plays
+                or instant_response.googlesearches or instant_response.youtubesearches
+                or instant_response.cam or instant_response.reminder
+            )
+
+            if has_instant_actions:
+                actions = {
+                    "wopens": instant_response.wopens,
+                    "plays": instant_response.plays,
+                    "images": [],
+                    "contents": [],
+                    "googlesearches": instant_response.googlesearches,
+                    "youtubesearches": instant_response.youtubesearches,
+                    "cam": instant_response.cam,
+                    "reminder": instant_response.reminder,
+                }
+
+                action_summary = []
+                if instant_response.wopens: action_summary.append("open")
+                if instant_response.plays: action_summary.append("play")
+                if instant_response.googlesearches or instant_response.youtubesearches: action_summary.append("search")
+                if instant_response.cam: action_summary.append("camera")
+                if instant_response.reminder: action_summary.append("reminder")
+                
+                yield {"_activity": {"event": "actions_emitted","message": ", ".join(action_summary) or "actions"}}
+                yield {"_actions": actions}
+
+            if self.task_manager and heavy_intents:
+                yield {"_activity": {"event": "tasks_executing","message": "Dispatching background tasks..."}}
+                for intent_type, payload in heavy_intents:
+                    task_id = self.task_manager.submit(intent_type,payload,chat_history,username=username)
+                    bg_task_ids.append({"task_id": task_id,"type": intent_type,"label": payload.get("prompt", payload.get("message", ""))[:100]})
+                yield {"_activity": {"event": "background_dispatched", "message": f"{len(bg_task_ids)} task(s) in background"}}
+            elif not self.task_manager and heavy_intents:
+                yield {"_activity": {"event": "tasks_executing","message": f"Running {task_name}..."}}
+                sync_response = self.task_executor.execute(heavy_intents,chat_history) if self.task_executor else TaskResponse()
+                yield {"_activity": {"event": "tasks_completed","message": "Tasks completed"}}
+
+                if sync_response.images or sync_response.contents:
+                    actions = {
+                        "wopens": [],
+                        "plays": [],
+                        "images": sync_response.images,
+                        "contents": sync_response.contents,
+                        "googlesearches": [], "youtubesearches": [],
+                        "cam": None,
+                    }
+                    yield {"_actions": actions}
+                instant_response.text = instant_response.text or sync_response.text
+
+            text_parts = []
+            if instant_response.text:
+                text_parts.append(instant_response.text)
+
+            if bg_task_ids:
+                bg_labels = []
+                for bt in bg_task_ids:
+                    if bt["type"] == "generate image": bg_labels.append("image generation")
+                    elif bt["type"] == "content": bg_labels.append("content writing")
+                    else: bg_labels.append(bt["type"])
+                text_parts.append(f"I'm working on the {', '.join(bg_labels)} in the background. I'll open it for you when it's ready.")
+
+            text = " ".join(text_parts) if text_parts else "Done."
+            self.sessions[session_id][-1].content = text
+            yield text
+
+            if bg_task_ids:
+                yield {"_background_tasks": bg_task_ids}
+
+            self.save_chat_session(session_id)
+            elapsed_scalable = time.perf_counter() - t0_scalable
+            logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
+            
+            # If it was purely a task, we are done. If mixed, we continue to regular chat generation below.
+            if category == CATEGORY_TASK:
+                return
+
+        if category == CATEGORY_MIXED:
+            yield {"_activity": { "event": "streaming_started","route": "mixed"}}
+            stream_svc = self.realtime_service if self.realtime_service else self.groq_service
+            chunk_count = 0
+            t0 = time.perf_counter()
+
+            try:
+                for chunk in stream_svc.stream_response(
+                    question=user_message, chat_history=chat_history, key_start_index=chat_idx,
+                    extra_system_parts=extra_system_parts or None,
+                ):
+                    if isinstance(chunk, dict):
+                        yield chunk
+                        continue
+
+                    if chunk_count == 0:
+                        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                        yield {"_activity": { "event": "first_chunk", "route": "mixed", "elapsed_ms": elapsed_ms}}
+
+                    self.sessions[session_id][-1].content += chunk
+                    chunk_count += 1
+
+                    if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                        self.save_chat_session(session_id, log_timing=False)
+                    yield chunk
+            finally:
+                self.save_chat_session(session_id)
+
+            if bg_task_ids:
+                yield {"_background_tasks": bg_task_ids}
+
+            elapsed_scalable = time.perf_counter() - t0_scalable
+            logger.info("[SCALABLE-STREAM] Mixed flow complete in %.2fs | tasks: %s", elapsed_scalable, task_types)
+            return
+
+        # General / Realtime routing
+        use_realtime = category == CATEGORY_REALTIME and self.realtime_service
+        route_name = "realtime" if use_realtime else "general"
+        yield {"_activity": {"event": "routing","route": route_name}}
+        yield {"_activity": {"event": "streaming_started","route": route_name}}
+
+        stream_svc = self.realtime_service if use_realtime else self.groq_service
+        chunk_count = 0
+        t0 = time.perf_counter()
+
+        if not stream_svc:
+            logger.error("[SCALABLE-STREAM] No streaming service available")
+            yield {"_error": "No streaming service configured"}
+            return
+
+        try:
+            for chunk in stream_svc.stream_response(
+                question=user_message, chat_history=chat_history, key_start_index=chat_idx,
+                extra_system_parts=extra_system_parts or None,
+            ):
+                if isinstance(chunk, dict):
+                    yield chunk
+                    continue
+
+                if chunk_count == 0:
+                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                    yield {"_activity": {"event": "first_chunk","route": route_name,"elapsed_ms": elapsed_ms}}
+
+                self.sessions[session_id][-1].content += chunk
+                chunk_count += 1
+                if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                    self.save_chat_session(session_id, log_timing=False)
+                yield chunk
+        finally:
+            self.save_chat_session(session_id)
+
+        elapsed_scalable = time.perf_counter() - t0_scalable
+        logger.info("[SCALABLE-STREAM] %s flow complete in %.2fs | chunks: %d", route_name, elapsed_scalable, chunk_count)
+
+    def set_session_meta(self, session_id: str, project_id: Optional[str] = None, username: Optional[str] = None, title: Optional[str] = None):
+        """Associate a session with a project/owner. Only overwrites fields that
+        are explicitly passed (non-None), so repeated calls don't clobber
+        earlier values (e.g. setting username shouldn't blank out project_id)."""
+        meta = self.session_meta.setdefault(session_id, {"project_id": None, "username": None, "title": None})
+
+        if project_id is not None:
+            meta["project_id"] = project_id
+        if username is not None:
+            meta["username"] = username
+        if title is not None:
+            meta["title"] = title
+
+    def get_session_project_id(self, session_id: str) -> Optional[str]:
+        return self.session_meta.get(session_id, {}).get("project_id")
+
+    def list_project_sessions(self, project_id: str, username: str) -> List[Dict[str, Any]]:
+        """Scans saved chat files on disk for ones belonging to this project
+        and owner. Used to populate a project's own chat list in the UI."""
+        results = []
+
+        for filepath in CHATS_DATA_DIR.glob("chat_*.json"):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    chat_dict = json.load(f)
+
+                if chat_dict.get("project_id") != project_id:
+                    continue
+                if chat_dict.get("username") and chat_dict.get("username") != username:
+                    continue
+
+                messages = chat_dict.get("messages", [])
+                first_user_msg = next((m.get("content", "") for m in messages if m.get("role") == "user"), "")
+                title = chat_dict.get("title") or (first_user_msg[:60] if first_user_msg else "New chat")
+
+                results.append({
+                    "session_id": chat_dict.get("session_id", filepath.stem.replace("chat_", "")),
+                    "title": title,
+                    "updated_at": filepath.stat().st_mtime,
+                })
+
+            except Exception as e:
+                logger.warning("[PROJECT-CHAT] Skipping unreadable session file %s: %s", filepath, e)
+
+        results.sort(key=lambda r: r["updated_at"], reverse=True)
+        return results
+
+    def list_user_sessions(self, username: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Scans saved chat files on disk for every session owned by this
+        user, regardless of project. Powers the sidebar's 'recent chats'
+        list so history survives across browsers/devices instead of living
+        only in the browser's localStorage.
+
+        Sessions saved before per-chat ownership tracking existed have no
+        "username" field at all - those are excluded here (there's no way
+        to know who they belonged to), rather than being shown to everyone.
+        """
+        results = []
+
+        for filepath in CHATS_DATA_DIR.glob("chat_*.json"):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    chat_dict = json.load(f)
+
+                if chat_dict.get("username") != username:
+                    continue
+
+                messages = chat_dict.get("messages", [])
+                if not messages:
+                    continue
+                first_user_msg = next((m.get("content", "") for m in messages if m.get("role") == "user"), "")
+                title = chat_dict.get("title") or (first_user_msg[:60] if first_user_msg else "New chat")
+
+                results.append({
+                    "session_id": chat_dict.get("session_id", filepath.stem.replace("chat_", "")),
+                    "title": title,
+                    "project_id": chat_dict.get("project_id"),
+                    "updated_at": filepath.stat().st_mtime,
+                })
+
+            except Exception as e:
+                logger.warning("[CHAT-HISTORY] Skipping unreadable session file %s: %s", filepath, e)
+
+        results.sort(key=lambda r: r["updated_at"], reverse=True)
+        return results[:limit]
+
+    def save_chat_session(self, session_id: str, log_timing: bool = True):
+        if session_id not in self.sessions or not self.sessions[session_id]:
+            return
+
+        messages = self.sessions[session_id]
+        safe_session_id = session_id.replace("-", "_").replace(" ", "_")
+        filename = f"chat_{safe_session_id}.json"
+        filepath = CHATS_DATA_DIR / filename
+
+        meta = self.session_meta.get(session_id, {})
+        chat_dict = {
+            "session_id": session_id,
+            "messages": [{"role": msg.role, "content": msg.content} for msg in messages],
+            "project_id": meta.get("project_id"),
+            "username": meta.get("username"),
+            "title": meta.get("title"),
+        }
+
+        max_retries = 3
+        last_exc = None
+
+        for attempt in range(max_retries):
+            try:
+                with self._save_lock:
+                    t0 = time.perf_counter() if log_timing else 0
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        json.dump(chat_dict, f, indent=2, ensure_ascii=False)
+
+                    if log_timing:
+                        logger.info("[TIMING] save_session_json: %.3fs", time.perf_counter() - t0)
+                    return
+
+            except OSError as e:
+                last_exc = e
+                if attempt < max_retries - 1:
+                    time.sleep(0.1 * (attempt + 1))
+
+            except Exception as e:
+                logger.error("Failed to save chat session %s to disk: %s", session_id, e)
+                return
+
+        logger.error("Failed to save chat session %s after %d retries: %s", session_id, max_retries, last_exc)
