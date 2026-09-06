@@ -463,12 +463,13 @@
                     we'll get back to you.</p>
                 <a class="contact-email-btn" href="mailto:hello@scalableai.us">hello@scalableai.us</a>
             </div>
-            <div class="contact-card">
+            <div class="contact-card" id="report-a-bug">
                 <h3>Found a bug?</h3>
-                <p>You can also report bugs directly from inside the app — open the account menu and choose
-                    "Report a bug" for the fastest response, since it includes helpful context automatically.</p>
-                <a class="contact-email-btn" href="mailto:hello@scalableai.us?subject=Bug%20report">Email a bug
-                    report</a>
+                <p>Tell us what happened, what page you were on, and what browser you're using — the more detail,
+                    the faster we can track it down.</p>
+                <a class="contact-email-btn" id="bug-report-mailto"
+                    href="mailto:hello@scalableai.us?subject=Bug%20report&amp;body=What%20happened%3A%0A(e.g.%20Clicking%20Delete%20on%20a%20chat%20did%20nothing%2C%20no%20error%20shown.)%0A%0APage%3A%20%0ABrowser%3A%20">Email
+                    a bug report</a>
             </div>
             <div class="contact-card">
                 <h3>Privacy or legal questions</h3>
@@ -500,6 +501,27 @@
         </div>
     </footer>
     <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
+    <script>
+        // Fill in the mailto's "Page" and "Browser" lines with the
+        // visitor's actual referring context, same info the old in-app
+        // bug-report form used to send automatically — done here via
+        // JS since a plain mailto: link has no fillable text box; the
+        // body just opens pre-populated in whatever email app the
+        // visitor already uses.
+        (function () {
+            var link = document.getElementById('bug-report-mailto');
+            if (!link) return;
+            var referrer = document.referrer && document.referrer.indexOf(window.location.host) !== -1
+                ? document.referrer
+                : '';
+            var body = 'What happened:\n' +
+                '(e.g. Clicking Delete on a chat did nothing, no error shown.)\n\n' +
+                'Page: ' + (referrer || '(please paste the page URL here)') + '\n' +
+                'Browser: ' + navigator.userAgent;
+            link.href = 'mailto:hello@scalableai.us?subject=' + encodeURIComponent('Bug report') +
+                '&body=' + encodeURIComponent(body);
+        })();
+    </script>
     <script src="/cookie-consent.js"></script>
 </body>
 

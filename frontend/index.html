@@ -1195,29 +1195,6 @@
             </div>
         </div>
     </div>
-    <div class="modal-overlay" id="bug-modal-overlay" role="presentation" style="display:none;">
-        <div class="modal-box" id="bug-modal-box" role="dialog" aria-modal="true" aria-labelledby="bug-modal-title"
-            tabindex="-1">
-            <div class="modal-title" id="bug-modal-title" data-i18n="help.report_bug">Report a bug</div>
-            <div class="modal-subtitle" data-i18n="bug.subtitle">Tell us what went wrong — we'll see exactly what page
-                and browser you're
-                on.</div>
-            <div class="profile-modal-field">
-                <label for="bug-description-input" data-i18n="bug.what_happened">What happened?</label>
-                <textarea id="bug-description-input" maxlength="2000" rows="5"
-                    placeholder="e.g. Clicking Delete on a chat did nothing, no error shown."
-                    data-i18n-placeholder="bug.placeholder"></textarea>
-                <div class="personalization-char-count" id="bug-char-count">0 / 2000</div>
-            </div>
-            <div class="bug-modal-status" id="bug-modal-status" style="display:none;"></div>
-            <div class="modal-actions">
-                <button type="button" class="modal-btn cancel" id="bug-modal-cancel"
-                    data-i18n="modal.cancel">Cancel</button>
-                <button type="button" class="modal-btn primary" id="bug-modal-submit" data-i18n="bug.send_report">Send
-                    report</button>
-            </div>
-        </div>
-    </div>
     <div class="modal-overlay" id="account-settings-overlay" role="presentation" style="display:none;">
         <div class="modal-box account-settings-box" id="account-settings-box" role="dialog" aria-modal="true"
             aria-labelledby="account-settings-title" tabindex="-1">
@@ -2280,93 +2257,16 @@
                 });
             });
 
-            // ---- Report a bug: real form that submits to the backend ----
+            // ---- Report a bug: opens the Contact page's bug section
+            // in a new tab, same as Help center / Terms / Privacy above.
+            // (Previously an in-app modal that posted to /feedback/bug —
+            // switched to keep bug reporting in one place with the rest
+            // of contact/support.) ----
             var reportBugBtn = document.getElementById('report-bug-btn');
-            var bugModalOverlay = document.getElementById('bug-modal-overlay');
-            var bugModalBox = document.getElementById('bug-modal-box');
-            var bugDescriptionInput = document.getElementById('bug-description-input');
-            var bugCharCount = document.getElementById('bug-char-count');
-            var bugModalStatus = document.getElementById('bug-modal-status');
-            var bugModalCancelBtn = document.getElementById('bug-modal-cancel');
-            var bugModalSubmitBtn = document.getElementById('bug-modal-submit');
-
-            function updateBugCharCount() {
-                if (!bugDescriptionInput || !bugCharCount) return;
-                bugCharCount.textContent = bugDescriptionInput.value.length + ' / 2000';
-            }
-
-            function showBugStatus(kind, msg) {
-                if (!bugModalStatus) return;
-                bugModalStatus.className = 'bug-modal-status ' + kind;
-                bugModalStatus.textContent = msg;
-                bugModalStatus.style.display = 'block';
-            }
-
-            function openBugModal() {
-                if (!bugModalOverlay) return;
-                if (bugDescriptionInput) bugDescriptionInput.value = '';
-                if (bugModalStatus) bugModalStatus.style.display = 'none';
-                updateBugCharCount();
-                bugModalOverlay.style.display = 'flex';
-                requestAnimationFrame(function () { bugModalOverlay.classList.add('open'); });
-                if (bugModalBox) bugModalBox.focus();
-            }
-
-            function closeBugModal() {
-                if (!bugModalOverlay) return;
-                bugModalOverlay.classList.remove('open');
-                setTimeout(function () { bugModalOverlay.style.display = 'none'; }, 180);
-            }
-
             if (reportBugBtn) {
                 reportBugBtn.addEventListener('click', function () {
                     closeAccountMenu();
-                    openBugModal();
-                });
-            }
-            if (bugDescriptionInput) bugDescriptionInput.addEventListener('input', updateBugCharCount);
-            if (bugModalCancelBtn) bugModalCancelBtn.addEventListener('click', closeBugModal);
-            if (bugModalOverlay) {
-                bugModalOverlay.addEventListener('click', function (e) {
-                    if (e.target === bugModalOverlay) closeBugModal();
-                });
-            }
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && bugModalOverlay && bugModalOverlay.classList.contains('open')) closeBugModal();
-            });
-            if (bugModalSubmitBtn) {
-                bugModalSubmitBtn.addEventListener('click', function () {
-                    var description = (bugDescriptionInput && bugDescriptionInput.value.trim()) || '';
-                    if (!description) {
-                        showBugStatus('error', 'Please describe what happened.');
-                        return;
-                    }
-                    bugModalSubmitBtn.disabled = true;
-                    bugModalSubmitBtn.textContent = 'Sending...';
-                    var payload = {
-                        description: description,
-                        page_url: window.location.href,
-                        user_agent: navigator.userAgent
-                    };
-                    var fetchFn = (typeof window.authFetch === 'function') ? window.authFetch : fetch;
-                    fetchFn(API + '/feedback/bug', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    }).then(function (res) {
-                        if (!res.ok) throw new Error('bad response');
-                        return res.json();
-                    }).then(function () {
-                        showBugStatus('success', "Thanks — it's been logged. We'll take a look.");
-                        if (bugDescriptionInput) bugDescriptionInput.value = '';
-                        updateBugCharCount();
-                        setTimeout(closeBugModal, 1400);
-                    }).catch(function () {
-                        showBugStatus('error', "Couldn't send the report. Please try again.");
-                    }).finally(function () {
-                        bugModalSubmitBtn.disabled = false;
-                        bugModalSubmitBtn.textContent = 'Send report';
-                    });
+                    window.open('/contact.html#report-a-bug', '_blank', 'noopener');
                 });
             }
 
