@@ -47,6 +47,7 @@ from app.services.vision_service import VisionService
 from app.services.task_manager import TaskManager
 from app.services.finance_service import FinanceService
 from app.services.auth_service import AuthService, AuthError
+from app.services.oauth_service import OAuthService, ProviderConfig
 from app.services.project_service import ProjectService, ProjectError
 from app.services.file_parser import extract_text as extract_file_text
 
@@ -75,6 +76,55 @@ chat_service: ChatService = None
 finance_service: FinanceService = None
 auth_service: AuthService = None
 project_service: ProjectService = None
+oauth_service: OAuthService = None
+
+
+def _build_oauth_service() -> OAuthService:
+    """Reads OAuth client credentials from environment variables and
+    builds an OAuthService with whichever providers are actually
+    configured. A provider with missing/blank credentials is simply
+    left out — see .env.example for the exact variable names."""
+    import os
+
+    base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000")
+
+    google = None
+    if os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET"):
+        google = ProviderConfig(
+            client_id=os.environ["GOOGLE_CLIENT_ID"],
+            client_secret=os.environ["GOOGLE_CLIENT_SECRET"],
+            authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            userinfo_url="https://openidconnect.googleapis.com/v1/userinfo",
+            scope="openid email profile",
+        )
+
+    github = None
+    if os.environ.get("GITHUB_CLIENT_ID") and os.environ.get("GITHUB_CLIENT_SECRET"):
+        github = ProviderConfig(
+            client_id=os.environ["GITHUB_CLIENT_ID"],
+            client_secret=os.environ["GITHUB_CLIENT_SECRET"],
+            authorize_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            userinfo_url="https://api.github.com/user",
+            scope="read:user user:email",
+        )
+
+    apple = None
+    if os.environ.get("APPLE_CLIENT_ID") and os.environ.get("APPLE_CLIENT_SECRET"):
+        # APPLE_CLIENT_SECRET is expected to already be the generated JWT
+        # (Apple's client "secret" is a signed token you regenerate
+        # periodically, not a static string) — see DEPLOY.md.
+        apple = ProviderConfig(
+            client_id=os.environ["APPLE_CLIENT_ID"],
+            client_secret=os.environ["APPLE_CLIENT_SECRET"],
+            authorize_url="https://appleid.apple.com/auth/authorize",
+            token_url="https://appleid.apple.com/auth/token",
+            scope="name email",
+        )
+
+    return OAuthService(base_url=base_url, google=google, apple=apple, github=github)
+
 
 def print_title():
 
@@ -94,7 +144,10 @@ def print_title():
    ╚══════════════════════════════════════════════════════════════════╝
 
     """
-    print(title)
+    try:
+        print(title)
+    except UnicodeEncodeError:
+        print(title.encode("ascii", errors="replace").decode("ascii"))
 
 @asynccontextmanager
 
@@ -102,6 +155,7 @@ async def lifespan(app: FastAPI):
 
     global vector_store_service, groq_service, realtime_service, brain_service
     global task_executor, task_manager, vision_service, chat_service, finance_service, auth_service, project_service
+    global oauth_service
     print_title()
     logger.info("=" * 60)
     logger.info("SCALABLE - Starting Up...")
@@ -159,6 +213,10 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing Auth service...")
         auth_service = AuthService()
         logger.info("Auth service initialized successfully")
+
+        logger.info("Initializing OAuth service...")
+        oauth_service = _build_oauth_service()
+        logger.info("OAuth service initialized (providers: %s)", list(oauth_service.providers.keys()) or "none configured")
         logger.info("Initializing Project service...")
         project_service = ProjectService()
         logger.info("Project service initialized successfully")
@@ -350,6 +408,74 @@ async def create_guest_token():
     endpoint a handful of times before being asked to sign in for real."""
     guest_id = secrets.token_hex(12)
     return {"token": _sign_guest_id(guest_id), "max_messages": GUEST_MAX_MESSAGES}
+
+@app.get("/auth/oauth/providers")
+async def list_oauth_providers():
+    """Tells the frontend which 'Continue with X' buttons to actually
+    show — a provider with no client ID/secret configured is omitted
+    rather than shown as a broken button."""
+    if not oauth_service:
+        return {"providers": []}
+    return {"providers": list(oauth_service.providers.keys())}
+
+
+@app.get("/auth/oauth/{provider}/start")
+async def oauth_start(provider: str):
+    if not oauth_service or not oauth_service.is_configured(provider):
+        raise HTTPException(status_code=404, detail=f"'{provider}' sign-in isn't set up.")
+    try:
+        url = oauth_service.build_authorize_url(provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return RedirectResponse(url)
+
+
+async def _finish_oauth_login(provider: str, code: Optional[str], state: Optional[str]):
+    """Shared by GET callback (Google/GitHub) and POST callback (Apple,
+    which uses form_post per its own requirements)."""
+    if not oauth_service or not oauth_service.is_configured(provider):
+        raise HTTPException(status_code=404, detail=f"'{provider}' sign-in isn't set up.")
+    if not code or not state or not oauth_service.consume_state(state):
+        return RedirectResponse(f"/app/?mode=login&oauth_error=invalid_request")
+
+    try:
+        identity = await oauth_service.exchange_code(provider, code)
+    except Exception as e:
+        logger.warning("[OAUTH] %s exchange failed: %s", provider, e)
+        return RedirectResponse(f"/app/?mode=login&oauth_error=exchange_failed")
+
+    if not auth_service:
+        raise HTTPException(status_code=503, detail="Auth service not initialized")
+
+    try:
+        token = auth_service.find_or_create_oauth_user(
+            provider=identity.provider,
+            provider_user_id=identity.provider_user_id,
+            email=identity.email,
+            display_name=identity.display_name,
+        )
+    except Exception as e:
+        logger.error("[OAUTH] Could not create/find user for %s: %s", provider, e)
+        return RedirectResponse(f"/app/?mode=login&oauth_error=account_error")
+
+    # Hand the session token to the frontend via a one-time URL fragment
+    # (not a query param, so it never gets logged by the server or shows
+    # up in browser history/Referer headers) — script.js picks it up on
+    # load and stores it, then cleans the URL.
+    return RedirectResponse(f"/app/#oauth_token={token}")
+
+
+@app.get("/auth/oauth/{provider}/callback")
+async def oauth_callback_get(provider: str, code: Optional[str] = None, state: Optional[str] = None):
+    return await _finish_oauth_login(provider, code, state)
+
+
+@app.post("/auth/oauth/{provider}/callback")
+async def oauth_callback_post(provider: str, code: str = Form(...), state: str = Form(...)):
+    # Apple's form_post response_mode delivers code/state as form fields
+    # in a POST, not a query string.
+    return await _finish_oauth_login(provider, code, state)
+
 
 def require_auth_or_guest(authorization: Optional[str] = Header(default=None)) -> str:
     """Like require_auth, but also accepts a signed guest token (capped,
@@ -1464,15 +1590,7 @@ async def cookie_consent_script():
     )
 
 @app.get("/sitemap.xml", include_in_schema=False)
-async def sitemap_xml(request: Request):
-    host = (request.url.hostname or "").lower()
-    if host.endswith("onrender.com"):
-        # No sitemap for the render.com preview URL.
-        return Response(
-            content="<!-- sitemap not served on this host -->",
-            media_type="application/xml",
-            headers={"Cache-Control": "no-cache, must-revalidate", "X-Robots-Tag": "noindex"},
-        )
+async def sitemap_xml():
     return FileResponse(
         _public_dir / "sitemap.xml",
         media_type="application/xml",
@@ -1480,16 +1598,7 @@ async def sitemap_xml(request: Request):
     )
 
 @app.get("/robots.txt", include_in_schema=False)
-async def robots_txt(request: Request):
-    # The *.onrender.com deployment URL must stay out of search indexes —
-    # only the real domain (scalableai.us) is crawlable.
-    host = (request.url.hostname or "").lower()
-    if host.endswith("onrender.com"):
-        return Response(
-            content="User-agent: *\nDisallow: /\n",
-            media_type="text/plain",
-            headers={"Cache-Control": "no-cache, must-revalidate", "X-Robots-Tag": "noindex"},
-        )
+async def robots_txt():
     return FileResponse(
         _public_dir / "robots.txt",
         media_type="text/plain",

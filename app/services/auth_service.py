@@ -263,8 +263,13 @@ class AuthService:
         if not user_record:
             raise AuthError("Account not found.")
 
-        if not self._verify_password(password or "", user_record.get("password_hash", "")):
-            raise AuthError("Incorrect password.")
+        has_password = bool(user_record.get("password_hash"))
+        if has_password:
+            if not self._verify_password(password or "", user_record.get("password_hash", "")):
+                raise AuthError("Incorrect password.")
+        # OAuth-only accounts (no local password) can delete without one —
+        # the caller already authenticated via a valid session token to
+        # reach this endpoint at all.
 
         self._revoke_all_sessions_for_user(username)
         path = self._user_path(username)
@@ -276,3 +281,73 @@ class AuthService:
             raise AuthError("Could not delete account. Please try again.")
 
         logger.info("[AUTH] Account deleted: %s", username)
+
+    # ---- OAuth (Google / Apple / GitHub) ----
+
+    def _generate_username_from(self, base: str) -> str:
+        """Turns an OAuth display name/email into a valid, available
+        username, appending digits if there's a collision."""
+        base = re.sub(r"[^a-zA-Z0-9_.]", "", (base or "").strip().lower())[:24] or "user"
+        if len(base) < 3:
+            base = (base + "user")[:24]
+        candidate = base
+        suffix = 0
+        while self._load_user(candidate) is not None:
+            suffix += 1
+            candidate = f"{base}{suffix}"[:30]
+        return candidate
+
+    def find_or_create_oauth_user(
+        self,
+        provider: str,
+        provider_user_id: str,
+        email: Optional[str],
+        display_name: Optional[str],
+    ) -> str:
+        """Given a verified identity from an OAuth provider, finds the
+        matching local account (by provider+provider_user_id first, then
+        by email) or creates a new one. Returns a session token.
+
+        provider_user_id is the provider's own stable subject/user id
+        (e.g. Google's 'sub' claim, GitHub's numeric id) — never the
+        email alone, since emails can change or be reused."""
+        provider = provider.strip().lower()
+
+        # 1. Already linked? Match on provider identity, not email.
+        for path in self._users_dir.glob("*.json"):
+            if path.name.startswith("_"):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    record = json.load(f)
+            except Exception:
+                continue
+            linked = record.get("oauth", {})
+            if linked.get(provider) == provider_user_id:
+                username = record["username"]
+                logger.info("[AUTH] OAuth login (%s) for existing linked user: %s", provider, username)
+                return self._create_session(username)
+
+        # 2. Not linked yet — does an account with this email already exist?
+        #    If so, link this provider to it rather than creating a duplicate.
+        existing = self._find_by_email(email) if email else None
+        if existing:
+            username = existing["username"]
+            existing.setdefault("oauth", {})[provider] = provider_user_id
+            self._save_user(username, existing)
+            logger.info("[AUTH] Linked %s to existing account: %s", provider, username)
+            return self._create_session(username)
+
+        # 3. Brand new user.
+        username = self._generate_username_from(display_name or (email.split("@")[0] if email else "") or provider)
+        user_record = {
+            "username": username,
+            "email": (email or "").strip(),
+            "display_name": (display_name or username).strip()[:60],
+            "password_hash": None,  # OAuth-only account — no local password
+            "oauth": {provider: provider_user_id},
+            "created_at": time.time(),
+        }
+        self._save_user(username, user_record)
+        logger.info("[AUTH] New user created via %s OAuth: %s", provider, username)
+        return self._create_session(username)

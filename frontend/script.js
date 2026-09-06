@@ -2346,7 +2346,63 @@ function scalableInitAuthGate() {
         const urlMode = urlParams.get('mode');
         if (urlMode === 'signup') { mode = 'signup'; wantsExplicitAuth = true; }
         else if (urlMode === 'login') { mode = 'login'; wantsExplicitAuth = true; }
+
+        const oauthError = urlParams.get('oauth_error');
+        if (oauthError) {
+            wantsExplicitAuth = true;
+            const messages = {
+                invalid_request: 'That sign-in link expired or was already used — please try again.',
+                exchange_failed: 'Could not complete sign-in with that provider. Please try again.',
+                account_error: 'Something went wrong creating your account. Please try again.'
+            };
+            setTimeout(function () { showError(messages[oauthError] || 'Sign-in failed. Please try again.'); }, 0);
+            history.replaceState(null, '', window.location.pathname + window.location.search.replace(/[?&]oauth_error=[^&]*/, '').replace(/^&/, '?'));
+        }
     } catch (e) { }
+
+    // OAuth login hands the session token back via a URL fragment
+    // (#oauth_token=...) rather than a query param or cookie, so it never
+    // ends up logged server-side or sent in a Referer header. Pick it up
+    // once, store it like any other session token, then scrub the URL.
+    try {
+        if (window.location.hash.indexOf('oauth_token=') !== -1) {
+            const hashParams = new URLSearchParams(window.location.hash.slice(1));
+            const oauthToken = hashParams.get('oauth_token');
+            if (oauthToken) {
+                setAuthToken(oauthToken);
+                wantsExplicitAuth = true;
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+        }
+    } catch (e) { }
+
+    // Show only the "Continue with X" buttons for providers the backend
+    // actually has credentials configured for — never show a button that
+    // would just 404.
+    (function setUpOAuthButtons() {
+        const oauthWrap = document.getElementById('auth-gate-oauth');
+        const buttons = {
+            google: document.getElementById('auth-oauth-google'),
+            apple: document.getElementById('auth-oauth-apple'),
+            github: document.getElementById('auth-oauth-github')
+        };
+        Object.keys(buttons).forEach(function (provider) {
+            const btn = buttons[provider];
+            if (btn) btn.addEventListener('click', function () {
+                window.location.href = `${API}/auth/oauth/${provider}/start`;
+            });
+        });
+        fetch(`${API}/auth/oauth/providers`).then(function (r) { return r.ok ? r.json() : { providers: [] }; })
+            .then(function (data) {
+                const available = data.providers || [];
+                if (!available.length) return;
+                available.forEach(function (provider) {
+                    if (buttons[provider]) buttons[provider].style.display = '';
+                });
+                if (oauthWrap) oauthWrap.style.display = '';
+            })
+            .catch(function () { /* leave OAuth section hidden on failure */ });
+    })();
 
     function showError(msg) {
         if (!errorEl) return;
@@ -2525,8 +2581,7 @@ function scalableInitAuthGate() {
     }
 
     // Verify any existing token before deciding whether to show the gate or the app.
-    const existingToken = getAuthToken();
-    if (!existingToken) {
+    const existingToken = getAuthToken(); if (!existingToken) {
         if (wantsExplicitAuth) {
             setMode(mode);
             showGate('');

@@ -5,7 +5,7 @@ services:
     plan: starter  # bump if you need more RAM (torch/sentence-transformers are memory-hungry)
     region: oregon  # pick whichever region is closest to your users
     autoDeploy: true
-    healthCheckPath: /health
+    healthCheckPath: /
     disk:
       name: scalableai-data
       mountPath: /app/database
@@ -42,4 +42,18 @@ services:
       - key: SCALABLE_USER_TITLE
         sync: false
       - key: SCALABLE_OWNER_NAME
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: "https://scalableai.us"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: APPLE_CLIENT_ID
+        sync: false
+      - key: APPLE_CLIENT_SECRET
         sync: false

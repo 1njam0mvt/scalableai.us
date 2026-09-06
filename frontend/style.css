@@ -2237,6 +2237,21 @@ body.guest-mode .account-menu-wrap {
     pointer-events: auto;
 }
 
+/* Collapsed sidebar: the menu's parent (.account-menu-wrap) shrinks to
+   --sidebar-w-collapsed (68px), which used to squeeze this menu down to
+   an unusable ~50px since it was sized with left/right against its
+   parent. Switch to a fixed-position, fixed-width flyout instead —
+   position is set inline by JS (openAccountMenuFixed / see script) to
+   sit beside the collapsed rail rather than stretch inside it. */
+.sidebar.collapsed .account-menu {
+    position: fixed;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 240px;
+    max-width: calc(100vw - 24px);
+}
+
 /* Side flyouts (Add account / Language / Help) sit beside the main menu,
    not on top of it — both stay visible at once, like a real submenu. */
 .account-flyout {
@@ -5647,4 +5662,53 @@ input:focus-visible {
 
 .settings-memory-actions .settings-action-btn {
     flex: 1;
+}
+
+/* "Continue with Google/Apple/GitHub" buttons on the auth gate */
+.auth-gate-oauth {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.auth-gate-oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-2);
+    color: var(--ink-0);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.auth-gate-oauth-btn:hover {
+    background: var(--bg-3);
+    border-color: var(--violet);
+}
+
+.auth-gate-oauth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--ink-3);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-top: 4px;
+}
+
+.auth-gate-oauth-divider::before,
+.auth-gate-oauth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line-strong);
 }

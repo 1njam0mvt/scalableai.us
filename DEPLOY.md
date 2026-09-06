@@ -153,3 +153,9 @@ only the code changes.
   large — expect multi-minute build times and a meaningful RAM footprint at
   runtime. If the service crashes with an out-of-memory error, upgrade the
   Render plan.
+- **Apple's OAuth client secret expires every ~6 months.** Unlike Google
+  and GitHub, Apple's client secret is a JWT you generate yourself (see
+  `scripts/generate_apple_client_secret.py`), not a static string — put a
+  reminder on your calendar to regenerate it and update `APPLE_CLIENT_SECRET`
+  in Render before it expires, or Apple sign-in will silently stop working.
+  
