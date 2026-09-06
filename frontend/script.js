@@ -2411,23 +2411,59 @@ function scalableInitAuthGate() {
     // shows a small prompt automatically if the visitor's browser is
     // already signed into a Google account, no click/redirect needed.
     // Only ever shown if the user isn't already authenticated.
+    //
+    // Uses the JS API (initialize + prompt) rather than the g_id_onload
+    // HTML-attribute approach, because the client ID isn't known until
+    // this fetch resolves — and per Google's own docs, the gsi/client
+    // library only reads that div's data-* attributes once, at the
+    // moment the script finishes loading. Setting them afterward is a
+    // race condition that can silently fail depending on timing, which
+    // is what caused the invalid_client error even with a correctly
+    // configured Cloud Console.
     function setUpGoogleOneTap(clientId) {
         if (getAuthToken()) return; // already signed in, nothing to do
-        const onloadDiv = document.getElementById('g_id_onload');
-        if (!onloadDiv || !clientId) return;
+        if (!clientId) return;
 
-        onloadDiv.setAttribute('data-client_id', clientId);
-        onloadDiv.setAttribute('data-login_uri', `${API}/auth/oauth/google/one-tap`);
-        onloadDiv.setAttribute('data-auto_prompt', 'true');
-        onloadDiv.setAttribute('data-itp_support', 'true');
+        function initAndPrompt() {
+            if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+            window.google.accounts.id.initialize({
+                client_id: clientId,
+                callback: handleGoogleOneTapCredential,
+                itp_support: true
+            });
+            window.google.accounts.id.prompt();
+        }
 
-        if (document.getElementById('google-gsi-client-script')) return; // already loaded
+        if (document.getElementById('google-gsi-client-script')) {
+            initAndPrompt();
+            return;
+        }
         const script = document.createElement('script');
         script.id = 'google-gsi-client-script';
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
+        script.onload = initAndPrompt;
         document.head.appendChild(script);
+    }
+
+    function handleGoogleOneTapCredential(response) {
+        // response.credential is the signed JWT — verify+exchange it
+        // server-side, which responds with a plain session token.
+        fetch(`${API}/auth/oauth/google/one-tap`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'credential=' + encodeURIComponent(response.credential)
+        }).then(function (r) {
+            if (!r.ok) throw new Error('one-tap exchange failed');
+            return r.json();
+        }).then(function (data) {
+            if (!data.token) throw new Error('no token in response');
+            setAuthToken(data.token);
+            window.location.reload();
+        }).catch(function () {
+            showError('Could not complete Google sign-in. Please try the button below instead.');
+        });
     }
 
     function showError(msg) {

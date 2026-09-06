@@ -483,10 +483,12 @@ async def oauth_callback_post(provider: str, code: str = Form(...), state: str =
 
 @app.post("/auth/oauth/google/one-tap")
 async def google_one_tap_callback(credential: str = Form(...)):
-    """Receives the signed JWT Google's client-side One Tap widget POSTs
-    directly to this endpoint (see data-login_uri in index.html) — a
-    different mechanism from the redirect-based /start /callback routes
-    above, but it lands the user in the same place: a real session token."""
+    """Receives the signed JWT from Google One Tap. Our frontend calls
+    this via fetch() (see handleGoogleOneTapCredential in script.js) after
+    google.accounts.id.prompt() delivers the credential to a JS callback —
+    so this returns JSON, not a redirect (a redirect would only make sense
+    if Google's widget posted here directly via a real HTML form, which
+    the JS-API-based flow we use does not do)."""
     if not oauth_service or not oauth_service.is_configured("google"):
         raise HTTPException(status_code=404, detail="Google sign-in isn't set up.")
 
@@ -494,7 +496,7 @@ async def google_one_tap_callback(credential: str = Form(...)):
         identity = await oauth_service.verify_google_one_tap_token(credential)
     except Exception as e:
         logger.warning("[OAUTH] Google One Tap verification failed: %s", e)
-        return RedirectResponse("/app/?mode=login&oauth_error=exchange_failed")
+        raise HTTPException(status_code=400, detail="Could not verify Google credential")
 
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
@@ -508,9 +510,9 @@ async def google_one_tap_callback(credential: str = Form(...)):
         )
     except Exception as e:
         logger.error("[OAUTH] Could not create/find user for Google One Tap: %s", e)
-        return RedirectResponse("/app/?mode=login&oauth_error=account_error")
+        raise HTTPException(status_code=500, detail="Could not create or find account")
 
-    return RedirectResponse(f"/app/#oauth_token={token}")
+    return {"token": token}
 
 
 def require_auth_or_guest(authorization: Optional[str] = Header(default=None)) -> str:
