@@ -1,16 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScalableAI Terms of Use: AI Chatbot and Assistant</title>
+    <title>Contact ScalableAI: Support, Feedback &amp; Questions</title>
     <meta name="description"
-        content="Read the ScalableAI Terms of Use for our AI chatbot and personal assistant, including acceptable use, AI-generated content, accounts, and service limitations." />
-    <link rel="canonical" href="https://scalableai.us/terms.html" />
-    <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
-    <link rel="shortcut icon" href="favicon.ico" />
-    <meta name="robots" content="noindex, follow" />
+        content="Get in touch with the ScalableAI team for support, feedback, bug reports, or general questions." />
+    <link rel="canonical" href="https://scalableai.us/contact.html" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="shortcut icon" href="/favicon.ico" />
     <style>
         :root {
             --bg-0: #09090b;
@@ -23,10 +22,7 @@
             --ink-2: #82828d;
             --violet: #9c6bff;
             --cyan: #4cd6e9;
-            --accent-grad: linear-gradient(135deg, var(--violet), var(--cyan));
             --accent-line: rgba(156, 107, 255, 0.32);
-            --r-pill: 999px;
-            --ease: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
@@ -149,19 +145,8 @@
             justify-self: start;
         }
 
-        .notice {
-            margin: 32px 0;
-            padding: 16px 18px;
-            background: var(--bg-1);
-            border: 1px solid var(--accent-line);
-            border-radius: 12px;
-            font-size: 13.5px;
-            color: var(--ink-1);
-            line-height: 1.6;
-        }
-
         main {
-            padding: 20px 0 80px;
+            padding: 40px 0 80px;
         }
 
         footer {
@@ -288,40 +273,70 @@
         }
 
         h1 {
-            font-size: 32px;
+            font-size: 36px;
             font-weight: 800;
-            margin: 24px 0 8px;
+            margin: 0 0 12px;
         }
 
-        .updated {
-            color: var(--ink-2);
-            font-size: 13.5px;
-            margin: 0 0 32px;
-        }
-
-        h2 {
-            font-size: 19px;
-            font-weight: 700;
-            margin: 36px 0 12px;
-        }
-
-        p,
-        li {
-            font-size: 15px;
-            line-height: 1.75;
+        .lead {
+            font-size: 16px;
+            line-height: 1.7;
             color: var(--ink-1);
+            margin: 0 0 40px;
         }
 
-        ul {
-            padding-left: 22px;
+        .faq-item {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.025);
+            margin: 12px 0;
+            overflow: hidden;
         }
 
-        li {
-            margin-bottom: 8px;
+        .faq-item[open] {
+            border-color: var(--accent-line);
+            background: rgba(156, 107, 255, 0.06);
         }
 
-        strong {
-            color: var(--ink-0);
+        .faq-item summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 20px 22px;
+            font-size: 17px;
+            font-weight: 700;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .faq-item summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .faq-item summary::after {
+            content: "+";
+            color: var(--cyan);
+            font-size: 24px;
+            font-weight: 400;
+            line-height: 1;
+        }
+
+        .faq-item[open] summary::after {
+            content: "−";
+        }
+
+        .faq-item summary:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: -2px;
+        }
+
+        .faq-item p {
+            margin: 0;
+            padding: 0 22px 22px;
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--ink-1);
         }
 
         footer {
@@ -377,8 +392,49 @@
                 padding: 20px;
             }
         }
+
+        .contact-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 28px 0;
+        }
+
+        .contact-card {
+            padding: 22px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--bg-1);
+        }
+
+        .contact-card h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: var(--ink-0);
+        }
+
+        .contact-card p {
+            margin: 0 0 14px;
+            font-size: 14px;
+            color: var(--ink-2);
+            line-height: 1.55;
+        }
+
+        .contact-card a.contact-email-btn {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 999px;
+            background: var(--violet);
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .contact-card a.contact-email-btn:hover {
+            opacity: 0.9;
+        }
     </style>
-</head>
 
 <body>
     <header>
@@ -389,125 +445,42 @@
             <nav class="site-nav" aria-label="Public pages">
                 <a href="/features.html">Features</a>
                 <a href="/faq.html">FAQ</a>
-                <a href="/terms.html" aria-current="page">Terms</a>
+                <a href="/terms.html">Terms</a>
                 <a href="/privacy.html">Privacy</a>
             </nav>
-            <a href="/" class="back-link">â† Back to home</a>
+            <a href="/" class="back-link">← Back to home</a>
         </div>
     </header>
 
     <main class="wrap">
-        <h1>Terms of Use</h1>
-        <p class="updated">Last updated: September 2, 2026</p>
+        <h1>Contact us</h1>
+        <p class="lead">Questions, feedback, bug reports, or anything else — here's how to reach us.</p>
 
-        <a href="#" <strong>Template notice:</strong> This is a standard starting template, not a finished legal
-            document.
-            Every bracketed section â€” company name, jurisdiction, contact details, age requirements â€” needs to be
-            filled in and reviewed by a qualified lawyer before this page is relied on as your actual Terms of Use.
+        <div class="contact-cards">
+            <div class="contact-card">
+                <h3>General questions &amp; support</h3>
+                <p>Have a question about your account, a feature, or how something works? Email us directly and
+                    we'll get back to you.</p>
+                <a class="contact-email-btn" href="mailto:hello@scalableai.us">hello@scalableai.us</a>
             </div>
+            <div class="contact-card">
+                <h3>Found a bug?</h3>
+                <p>You can also report bugs directly from inside the app — open the account menu and choose
+                    "Report a bug" for the fastest response, since it includes helpful context automatically.</p>
+                <a class="contact-email-btn" href="mailto:hello@scalableai.us?subject=Bug%20report">Email a bug
+                    report</a>
+            </div>
+            <div class="contact-card">
+                <h3>Privacy or legal questions</h3>
+                <p>For questions about our <a href="/privacy.html">Privacy Policy</a> or
+                    <a href="/terms.html">Terms of Service</a>, the same address reaches us.
+                </p>
+                <a class="contact-email-btn"
+                    href="mailto:hello@scalableai.us?subject=Privacy%20question">hello@scalableai.us</a>
+            </div>
+        </div>
 
-            <h2>1. Acceptance of Terms</h2>
-            <p>
-                By accessing or using ScalableAI (the "Service"), operated by ScalableAI ("we," "us," or "our"), you
-                agree to be bound by these Terms of Use ("Terms"). If you do not agree to these Terms, do not use the
-                Service.
-            </p>
-
-            <h2>2. Description of Service</h2>
-            <p>
-                ScalableAI is an AI-powered chat assistant that can hold conversations, generate images, open websites,
-                play media, and analyze camera input, among other features. Some features are available without an
-                account as a limited free preview; full access requires creating an account.
-            </p>
-
-            <h2>3. Eligibility</h2>
-            <p>
-                You must be at least [13/16/18 â€” choose based on your jurisdiction and legal advice] years old to use
-                the Service. By using the Service, you represent that you meet this requirement.
-            </p>
-
-            <h2>4. Accounts</h2>
-            <p>
-                When you create an account, you're responsible for maintaining the confidentiality of your login
-                credentials and for all activity under your account. Notify us immediately of any unauthorized use of
-                your account at hello@scalableai.us.
-            </p>
-
-            <h2>5. Acceptable Use</h2>
-            <p>You agree not to use the Service to:</p>
-            <ul>
-                <li>Generate or request content that is illegal, harmful, or exploitative, including content that
-                    sexualizes minors in any way.</li>
-                <li>Attempt to bypass, disable, or circumvent safety features or usage limits of the Service.</li>
-                <li>Use automated means (bots, scripts) to interact with the Service outside of normal, intended human
-                    use, including the free preview feature.</li>
-                <li>Impersonate any person or entity, or misrepresent your affiliation with any person or entity.</li>
-                <li>Use the Service to violate any applicable law or regulation.</li>
-            </ul>
-
-            <h2>6. AI-Generated Content</h2>
-            <p>
-                ScalableAI uses artificial intelligence to generate text and image responses. AI-generated content may
-                be
-                inaccurate, incomplete, or inappropriate at times. You are responsible for evaluating the accuracy and
-                suitability of any content before relying on it. We do not guarantee that responses will be error-free.
-            </p>
-
-            <h2>7. Free Preview / Anonymous Use</h2>
-            <p>
-                The Service may allow a limited number of messages without creating an account. This preview is subject
-                to usage limits, may be modified or removed at any time, and is provided for evaluation purposes only.
-                Data from anonymous preview sessions is handled as described in our <a href="/privacy.html">Privacy
-                    Policy</a>.
-            </p>
-
-            <h2>8. Intellectual Property</h2>
-            <p>
-                The Service, including its design, branding, and underlying software, is owned by ScalableAI and
-                protected by applicable intellectual property laws. You retain rights to content you submit, subject to
-                the license you grant us in Section 9.
-            </p>
-
-            <h2>9. License to Your Content</h2>
-            <p>
-                By submitting messages, prompts, or other content to the Service, you grant us a limited, non-exclusive
-                license to process that content for the purpose of operating and improving the Service, as described in
-                our Privacy Policy.
-            </p>
-
-            <h2>10. Termination</h2>
-            <p>
-                We may suspend or terminate your access to the Service at any time, with or without notice, for conduct
-                that violates these Terms or is otherwise harmful to the Service or other users.
-            </p>
-
-            <h2 id="disclaimer">11. Disclaimer of Warranties</h2>
-            <p>
-                The Service is provided "as is" and "as available," without warranties of any kind, express or implied,
-                including but not limited to accuracy, reliability, or fitness for a particular purpose.
-            </p>
-
-            <h2>12. Limitation of Liability</h2>
-            <p>
-                To the maximum extent permitted by law, ScalableAI shall not be liable for any indirect, incidental,
-                special, or consequential damages arising from your use of the Service.
-            </p>
-
-            <h2>13. Changes to These Terms</h2>
-            <p>
-                We may update these Terms from time to time. Continued use of the Service after changes take effect
-                constitutes acceptance of the revised Terms.
-            </p>
-
-            <h2>14. Governing Law</h2>
-            <p>
-                These Terms are governed by the laws of the United States, without regard to conflict-of-law principles.
-            </p>
-
-            <h2>15. Contact</h2>
-            <p>
-                Questions about these Terms can be sent to hello@scalableai.us.
-            </p>
+        <p class="lead">Looking for answers to common questions instead? Check the <a href="/faq.html">FAQ</a>.</p>
     </main>
 
     <footer>
@@ -515,15 +488,15 @@
             <div class="footer-row">
                 <a href="/" class="brand">ScalableAI</a>
                 <nav class="footer-links" aria-label="Footer links">
-                    <a href="/contact.html">Contact us</a><a href="/faq.html">Help Center</a><a
+                    <a href="/contact.html" aria-current="page">Contact us</a><a href="/faq.html">Help Center</a><a
                         href="/terms.html#disclaimer">Disclaimer</a><a href="/terms.html">Terms</a><a
                         href="/privacy.html">Privacy</a><a href="#"
                         onclick="window.scalableManageCookies(); return false;">Manage cookies</a>
                 </nav>
             </div>
-            <p class="footer-disclaimer">ScalableAI provides AI-generated information for general purposes only. Do not
-                rely on its responses as professional, financial, medical, or legal advice.</p>
-            <p class="footer-copy">Â© <span class="copyright-year"></span> ScalableAI. All rights reserved.</p>
+            <p class="footer-disclaimer">ScalableAI provides AI-generated information for general purposes only. Do
+                not rely on its responses as professional, financial, medical, or legal advice.</p>
+            <p class="footer-copy">© <span class="copyright-year"></span> ScalableAI. All rights reserved.</p>
         </div>
     </footer>
     <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>

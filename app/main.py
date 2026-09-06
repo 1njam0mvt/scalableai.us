@@ -1619,6 +1619,14 @@ async def faq_redirect():
 async def faq_page():
     return _public_page("faq.html")
 
+@app.get("/contact")
+async def contact_redirect():
+    return _public_page("contact.html")
+
+@app.get("/contact.html", include_in_schema=False)
+async def contact_page():
+    return _public_page("contact.html")
+
 @app.get("/cookie-consent.js", include_in_schema=False)
 async def cookie_consent_script():
     return FileResponse(
