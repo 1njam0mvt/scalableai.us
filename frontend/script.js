@@ -2395,14 +2395,40 @@ function scalableInitAuthGate() {
         fetch(`${API}/auth/oauth/providers`).then(function (r) { return r.ok ? r.json() : { providers: [] }; })
             .then(function (data) {
                 const available = data.providers || [];
-                if (!available.length) return;
-                available.forEach(function (provider) {
-                    if (buttons[provider]) buttons[provider].style.display = '';
-                });
-                if (oauthWrap) oauthWrap.style.display = '';
+                if (available.length) {
+                    available.forEach(function (provider) {
+                        if (buttons[provider]) buttons[provider].style.display = '';
+                    });
+                    if (oauthWrap) oauthWrap.style.display = '';
+                }
+                if (data.google_client_id) setUpGoogleOneTap(data.google_client_id);
             })
             .catch(function () { /* leave OAuth section hidden on failure */ });
     })();
+
+    // Google One Tap: a separate, lighter-weight sign-in surface from the
+    // "Continue with Google" button above — Google's own client-side JS
+    // shows a small prompt automatically if the visitor's browser is
+    // already signed into a Google account, no click/redirect needed.
+    // Only ever shown if the user isn't already authenticated.
+    function setUpGoogleOneTap(clientId) {
+        if (getAuthToken()) return; // already signed in, nothing to do
+        const onloadDiv = document.getElementById('g_id_onload');
+        if (!onloadDiv || !clientId) return;
+
+        onloadDiv.setAttribute('data-client_id', clientId);
+        onloadDiv.setAttribute('data-login_uri', `${API}/auth/oauth/google/one-tap`);
+        onloadDiv.setAttribute('data-auto_prompt', 'true');
+        onloadDiv.setAttribute('data-itp_support', 'true');
+
+        if (document.getElementById('google-gsi-client-script')) return; // already loaded
+        const script = document.createElement('script');
+        script.id = 'google-gsi-client-script';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    }
 
     function showError(msg) {
         if (!errorEl) return;

@@ -7,6 +7,10 @@ langchain-core>=0.3.0
 langchain-huggingface>=0.1.0
 langchain-text-splitters>=0.2.0
 faiss-cpu>=1.7.0
+# NOTE: deliberately NO torch/transformers/sentence-transformers here —
+# embeddings run via the Hugging Face Inference API (HF_API_KEY), and
+# including torch made the Docker image multi-GB (Render ran out of disk).
+huggingface-hub>=1.5.0,<2.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
 numpy>=1.24.0
@@ -16,6 +20,7 @@ tavily-python>=0.5.0
 edge-tts>=6.1.0
 groq>=0.9.0
 httpx>=0.24.0
+google-auth>=2.28.0  # Google One Tap id_token verification
 pypdf>=4.0.0
 python-docx>=1.1.0
 python-multipart>=0.0.9

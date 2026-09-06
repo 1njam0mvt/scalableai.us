@@ -43,6 +43,7 @@
         <span class="auth-loading-spinner" aria-label="Loading"></span>
     </div>
     <div class="auth-gate" id="auth-gate" style="display:none;">
+        <div id="g_id_onload" style="display:none;"></div>
         <div class="auth-gate-box">
             <p class="auth-gate-kicker" data-i18n="auth.kicker">PRIVATE ACCESS</p>
             <h1 class="auth-gate-title" data-i18n="auth.welcome">Welcome</h1>
@@ -1248,7 +1249,7 @@
             <p class="account-settings-danger-text" data-i18n="memory.section_sub">Scalable saves small durable notes
                 about you as you chat — like your name or preferences — so it doesn't have to ask again. You can review,
                 edit, or clear these at any time.</p>
-            <textarea id="user-memory-textarea" class="instructions-modal-textarea" rows="6"
+            <textarea id="user-memory-textarea" class="instructions-modal-textarea user-memory-textarea" rows="6"
                 placeholder="Nothing saved yet." data-i18n-placeholder="memory.empty_placeholder"></textarea>
             <div class="account-settings-status" id="user-memory-status" style="display:none;"></div>
             <div class="settings-memory-actions">

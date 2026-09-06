@@ -228,6 +228,40 @@ class OAuthService:
             display_name=None,  # Apple only sends a name on first-ever login, via the form POST body, not here
         )
 
+    async def verify_google_one_tap_token(self, id_token_str: str) -> OAuthIdentity:
+        """Verifies a Google One Tap credential (a signed JWT delivered
+        directly to the browser via Google's client-side JS library —
+        NOT part of the redirect/authorization-code flow above). This
+        MUST cryptographically verify the signature against Google's
+        public keys and check the audience/issuer before trusting
+        anything in it — never decode a client-delivered token
+        unverified, unlike the Apple case above where the token comes
+        server-to-server over TLS directly from Apple."""
+        cfg = self.providers.get("google")
+        if not cfg:
+            raise ValueError("Google OAuth is not configured")
+
+        # Imported lazily so this dependency is only required if Google
+        # OAuth is actually configured/used.
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        request = google_requests.Request()
+        # verify_oauth2_token raises ValueError on any invalid signature,
+        # expired token, or audience mismatch — we deliberately let that
+        # propagate to the caller rather than swallow it.
+        claims = google_id_token.verify_oauth2_token(id_token_str, request, cfg.client_id)
+
+        if claims.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+            raise ValueError("Unexpected token issuer")
+
+        return OAuthIdentity(
+            provider="google",
+            provider_user_id=claims["sub"],
+            email=claims.get("email"),
+            display_name=claims.get("name"),
+        )
+
 
 def _decode_jwt_payload_unverified(token: str) -> dict:
     import json
@@ -238,4 +272,3 @@ def _decode_jwt_payload_unverified(token: str) -> dict:
     except Exception as e:
         logger.warning("[OAUTH] Could not decode Apple id_token: %s", e)
         return {}
-    

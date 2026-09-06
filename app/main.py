@@ -144,10 +144,7 @@ def print_title():
    ╚══════════════════════════════════════════════════════════════════╝
 
     """
-    try:
-        print(title)
-    except UnicodeEncodeError:
-        print(title.encode("ascii", errors="replace").decode("ascii"))
+    print(title)
 
 @asynccontextmanager
 
@@ -413,10 +410,17 @@ async def create_guest_token():
 async def list_oauth_providers():
     """Tells the frontend which 'Continue with X' buttons to actually
     show — a provider with no client ID/secret configured is omitted
-    rather than shown as a broken button."""
+    rather than shown as a broken button. Also exposes Google's client ID
+    (never the secret) so the frontend can render the One Tap widget,
+    since client IDs are meant to be public — they identify the app, they
+    don't authenticate anything on their own."""
     if not oauth_service:
-        return {"providers": []}
-    return {"providers": list(oauth_service.providers.keys())}
+        return {"providers": [], "google_client_id": None}
+    google_cfg = oauth_service.providers.get("google")
+    return {
+        "providers": list(oauth_service.providers.keys()),
+        "google_client_id": google_cfg.client_id if google_cfg else None,
+    }
 
 
 @app.get("/auth/oauth/{provider}/start")
@@ -475,6 +479,38 @@ async def oauth_callback_post(provider: str, code: str = Form(...), state: str =
     # Apple's form_post response_mode delivers code/state as form fields
     # in a POST, not a query string.
     return await _finish_oauth_login(provider, code, state)
+
+
+@app.post("/auth/oauth/google/one-tap")
+async def google_one_tap_callback(credential: str = Form(...)):
+    """Receives the signed JWT Google's client-side One Tap widget POSTs
+    directly to this endpoint (see data-login_uri in index.html) — a
+    different mechanism from the redirect-based /start /callback routes
+    above, but it lands the user in the same place: a real session token."""
+    if not oauth_service or not oauth_service.is_configured("google"):
+        raise HTTPException(status_code=404, detail="Google sign-in isn't set up.")
+
+    try:
+        identity = await oauth_service.verify_google_one_tap_token(credential)
+    except Exception as e:
+        logger.warning("[OAUTH] Google One Tap verification failed: %s", e)
+        return RedirectResponse("/app/?mode=login&oauth_error=exchange_failed")
+
+    if not auth_service:
+        raise HTTPException(status_code=503, detail="Auth service not initialized")
+
+    try:
+        token = auth_service.find_or_create_oauth_user(
+            provider=identity.provider,
+            provider_user_id=identity.provider_user_id,
+            email=identity.email,
+            display_name=identity.display_name,
+        )
+    except Exception as e:
+        logger.error("[OAUTH] Could not create/find user for Google One Tap: %s", e)
+        return RedirectResponse("/app/?mode=login&oauth_error=account_error")
+
+    return RedirectResponse(f"/app/#oauth_token={token}")
 
 
 def require_auth_or_guest(authorization: Optional[str] = Header(default=None)) -> str:
