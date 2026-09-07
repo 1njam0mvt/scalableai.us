@@ -214,6 +214,7 @@ body.guest-mode .auth-only-control {
 
 body.guest-mode .guest-account-prompt {
     display: grid;
+    grid-template-columns: 1fr 1fr;
 }
 
 .guest-account-prompt a {
@@ -2119,6 +2120,43 @@ body.guest-mode .account-menu-wrap {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
     padding-left: max(8px, env(safe-area-inset-left));
     border-top: 1px solid var(--line);
+}
+
+/* Collapsed-sidebar quick-access icons (Settings / Help / Report a bug) —
+   hidden in the normal expanded sidebar, where these live in the account
+   menu instead. Mirrors the small icon rail pattern used by other chat
+   apps' collapsed sidebars, so these stay reachable without expanding. */
+.sidebar-collapsed-icons {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-collapsed-icons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+}
+
+.sidebar-collapsed-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.sidebar-collapsed-icon-btn:hover {
+    background: var(--bg-2);
+    color: var(--ink-0);
 }
 
 .sidebar-account {
@@ -4787,18 +4825,13 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
         gap: 3px;
         flex: 0 1 auto;
         min-width: 0;
-        overflow-x: auto;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .header-right::-webkit-scrollbar {
-        display: none;
+        flex-wrap: nowrap;
+        overflow-x: visible;
     }
 
     .header-right .btn-icon {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
         flex: 0 0 auto;
     }
 

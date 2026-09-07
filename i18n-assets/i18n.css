@@ -76,3 +76,32 @@
         right: 8px;
     }
 }
+
+/* Compact mode inside the packed mobile header: shrink to fit alongside
+   the other icon buttons instead of showing the full language name. */
+.ui-lang-switcher-code {
+    display: none;
+}
+
+@media (max-width: 560px) {
+    #ui-lang-switcher:not(.ui-lang-switcher-floating) {
+        flex: 0 0 auto;
+    }
+
+    #ui-lang-switcher:not(.ui-lang-switcher-floating) #ui-lang-switcher-btn {
+        padding: 6px 9px;
+        font-size: 11.5px;
+    }
+
+    #ui-lang-switcher:not(.ui-lang-switcher-floating) .ui-lang-switcher-full {
+        display: none;
+    }
+
+    #ui-lang-switcher:not(.ui-lang-switcher-floating) .ui-lang-switcher-code {
+        display: inline;
+    }
+
+    #ui-lang-switcher-menu {
+        right: -8px;
+    }
+}

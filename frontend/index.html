@@ -2,16 +2,6 @@
 <html lang="en">
 
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-QW43LYP6E6"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-QW43LYP6E6');
-</script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -260,6 +250,37 @@
                 <div class="sidebar-empty" data-i18n="sidebar.no_conversations">No conversations yet</div>
             </div>
             <div class="sidebar-bottom">
+                <div class="sidebar-collapsed-icons" id="sidebar-collapsed-icons">
+                    <button type="button" class="sidebar-collapsed-icon-btn auth-only-control"
+                        id="sidebar-collapsed-settings-btn" title="Account settings"
+                        data-i18n-title="settings.account_settings" aria-label="Account settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3" />
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                    </button>
+                    <button type="button" class="sidebar-collapsed-icon-btn" id="sidebar-collapsed-help-btn"
+                        title="Help center" data-i18n-title="help.help_center" aria-label="Help center">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                    </button>
+                    <button type="button" class="sidebar-collapsed-icon-btn" id="sidebar-collapsed-bug-btn"
+                        title="Report a bug" data-i18n-title="help.report_bug" aria-label="Report a bug">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="8" y="6" width="8" height="14" rx="4" />
+                            <path d="M19 8l-2 2M5 8l2 2M19 18l-2-2M5 18l2-2M12 6V3M9 3h6" />
+                            <line x1="8" y1="12" x2="4" y2="12" />
+                            <line x1="16" y1="12" x2="20" y2="12" />
+                        </svg>
+                    </button>
+                </div>
                 <div class="guest-account-prompt" id="guest-account-prompt">
                     <a href="/app/?mode=login" class="guest-account-login" data-i18n="auth.login_link">Log in</a>
                     <a href="/app/?mode=signup" class="guest-account-signup" data-i18n="auth.signup_btn">Sign up</a>
@@ -1441,6 +1462,26 @@
                 settingsItemBtn.addEventListener('click', function () {
                     closeAccountMenu();
                     openAccountSettingsModal();
+                });
+            }
+
+            // ---- Collapsed-sidebar quick icons: Settings / Help / Report a bug ----
+            var collapsedSettingsBtn = document.getElementById('sidebar-collapsed-settings-btn');
+            var collapsedHelpBtn = document.getElementById('sidebar-collapsed-help-btn');
+            var collapsedBugBtn = document.getElementById('sidebar-collapsed-bug-btn');
+            if (collapsedSettingsBtn) {
+                collapsedSettingsBtn.addEventListener('click', function () {
+                    openAccountSettingsModal();
+                });
+            }
+            if (collapsedHelpBtn) {
+                collapsedHelpBtn.addEventListener('click', function () {
+                    window.open('/faq.html', '_blank', 'noopener');
+                });
+            }
+            if (collapsedBugBtn) {
+                collapsedBugBtn.addEventListener('click', function () {
+                    window.open('/contact.html#report-a-bug', '_blank', 'noopener');
                 });
             }
             if (accountSettingsCloseBtn) accountSettingsCloseBtn.addEventListener('click', closeAccountSettingsModal);
