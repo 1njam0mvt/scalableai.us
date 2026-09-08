@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,7 +37,6 @@ if __name__ == "__main__":
     _validate_startup()
     _ensure_thinking_audio()
 
-    import os
     port = int(os.environ.get("PORT", 8000))
     is_production = os.environ.get("RENDER") == "true" or os.environ.get("ENV") == "production"
 
@@ -51,14 +51,14 @@ if __name__ == "__main__":
     except OSError as e:
         if "address already in use" in str(e).lower() or "10048" in str(e):
             print(f"[ERROR] Port {port} is already in use. Try another port or stop the other process.")
-        
+
         else:
             print(f"[ERROR] Server failed to start: {e}")
         sys.exit(1)
 
     except KeyboardInterrupt:
         print("\n[INFO] Server stopped by user.")
-        
+
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
         sys.exit(1)

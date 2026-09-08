@@ -795,10 +795,10 @@ function scheduleReminder(reminder) {
             try {
                 new Notification(title, { body, icon: '/app/favicon.ico' });
             } catch (_) {
-                showToast(`⏰ Reminder: ${body}`);
+                showReminderToast(body);
             }
         } else {
-            showToast(`⏰ Reminder: ${body}`);
+            showReminderToast(body);
         }
 
         // Also play a short beep so it's noticeable even if the tab is backgrounded.
@@ -821,6 +821,12 @@ function scheduleReminder(reminder) {
 
     showToast(`Reminder set: "${reminder.message}" in ${reminder.label}`);
     setTimeout(deliver, reminder.delay_seconds * 1000);
+}
+
+// Show a persistent reminder toast (used when Notification API is unavailable,
+// e.g. inside a sandboxed iframe). Auto-dismisses after 30s instead of 5s.
+function showReminderToast(body) {
+    showToast(`⏰ Reminder: ${body}`, 30000);
 }
 
 function handleBackgroundTasks(tasks, contentEl) {

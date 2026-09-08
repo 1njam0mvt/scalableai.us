@@ -271,13 +271,31 @@ app = FastAPI(
     openapi_url=None
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# NOTE: allow_origins=["*"] is incompatible with allow_credentials=True per the
+# CORS spec - the CORSMiddleware silently drops the Access-Control-Allow-Origin
+# header for credentialed requests, so cross-origin calls fail. Same-origin
+# requests (how the frontend is normally served) are unaffected by CORS, so we
+# only enable explicit origins when configured.
+_allowed_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+if _allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # No explicit origins configured - allow any origin without credentials
+    # (the default same-origin deployment never hits CORS anyway).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=".*",
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 class TimingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
