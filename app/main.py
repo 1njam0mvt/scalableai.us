@@ -144,7 +144,8 @@ def print_title():
    ╚══════════════════════════════════════════════════════════════════╝
 
     """
-    print(title)
+    print(title.encode("ascii", errors="replace").decode("ascii"))
+    # (original Unicode box/ascii-art title replaced on Windows cp1252 consoles)
 
 @asynccontextmanager
 

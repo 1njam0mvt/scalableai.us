@@ -203,6 +203,16 @@ body.guest-mode .auth-only-control {
     display: none !important;
 }
 
+/* Settings (gear icon) specifically: hidden for guests only on mobile,
+   where header space is tight and account-only preferences aren't as
+   relevant before signing up. Desktop guests and all logged-in users
+   (any width) keep it. */
+@media (max-width: 700px) {
+    body.guest-mode .mobile-guest-hide {
+        display: none !important;
+    }
+}
+
 .guest-account-prompt {
     display: none;
     gap: 8px;

@@ -23,7 +23,7 @@
         })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="/style.css?v=20260908">
+    <link rel="stylesheet" href="/style.css?v=202609081136">
     <link rel="stylesheet" href="/i18n/i18n.css">
     <script src="/i18n/i18n.js" defer></script>
 </head>
@@ -573,7 +573,7 @@
                         </svg>
                     </button>
                     <div class="settings-menu-wrap">
-                        <button class="btn-icon settings-btn" id="settings-btn" title="Settings">
+                        <button class="btn-icon settings-btn mobile-guest-hide" id="settings-btn" title="Settings">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="3" />
@@ -1290,8 +1290,8 @@
             </div>
         </div>
     </div>
-    <script src="/orb.js?v=20260908"></script>
-    <script src="/script.js?v=20260908"></script>
+    <script src="/orb.js?v=202609081136"></script>
+    <script src="/script.js?v=202609081136"></script>
     <script>
         (function () {
             var sidebar = document.getElementById('sidebar');
@@ -2440,6 +2440,13 @@
 
             navItems.forEach(function (item) {
                 item.addEventListener('click', function () {
+                    // Codex needs an account (its sessions aren't something
+                    // a guest can meaningfully save/return to) — send guests
+                    // to sign up instead of opening an empty/broken section.
+                    if (item.getAttribute('data-nav') === 'codex' && !getAuthToken()) {
+                        window.location.href = '/app/?mode=signup';
+                        return;
+                    }
                     navItems.forEach(function (i) { i.classList.remove('active'); });
                     item.classList.add('active');
                     showSection(item.getAttribute('data-nav'));

@@ -499,7 +499,7 @@ class TaskExecutor:
     # ---- reminders (client-delivered; see frontend script.js) ----
 
     _DURATION_RE = re.compile(
-        r"(\d+)\s*(second|sec|minute|min|hour|hr|day)s?", re.IGNORECASE
+        r"(\d+(?:\.\d+)?)\s*(second|sec|minute|min|hour|hr|day)s?", re.IGNORECASE
     )
     _UNIT_SECONDS = {
         "second": 1, "sec": 1,
@@ -524,9 +524,9 @@ class TaskExecutor:
         if not match:
             return None
 
-        amount = int(match.group(1))
+        amount = float(match.group(1))
         unit = match.group(2).lower()
-        delay_seconds = amount * self._UNIT_SECONDS.get(unit, 60)
+        delay_seconds = int(amount * self._UNIT_SECONDS.get(unit, 60))
 
         if delay_seconds <= 0 or delay_seconds > 86400:  # cap at 24h - tab won't stay open longer reliably
             return None
@@ -534,7 +534,7 @@ class TaskExecutor:
         # Strip the duration phrase and command words to get the reminder text.
         message = self._DURATION_RE.sub("", raw)
         message = re.sub(
-            r"\b(remind me to|remind me|set a reminder to|set a reminder|reminder to|in|after)\b",
+            r"\b(remind(?: me)?(?: to)?|set (?:up )?(?:a )?reminder(?: to)?|reminder to|in|after)\b",
             "", message, flags=re.IGNORECASE,
         ).strip(" .,!?")
 
@@ -544,7 +544,8 @@ class TaskExecutor:
         unit_label = "second" if unit.startswith("sec") else (
             "minute" if unit.startswith("min") else ("hour" if unit.startswith("h") else "day")
         )
-        label = f"{amount} {unit_label}{'s' if amount != 1 else ''}"
+        amount_label = int(amount) if amount == int(amount) else amount
+        label = f"{amount_label} {unit_label}{'s' if amount_label != 1 else ''}"
 
         return {
             "message": message,

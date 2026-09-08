@@ -2,6 +2,14 @@ import logging
 import re
 import time
 from typing import List, Optional, Tuple, Literal
+
+from app.services.site_categories import ALL_SITES, LOCATION_SITES, get_osint_url
+
+
+def get_extra_sites() -> dict:
+    """Flatten every categorized site (editing, cyber, osint, dev, shopping,
+    education, media, tools) into one dict to merge into SITE_MAP."""
+    return dict(ALL_SITES)
 from config import GROQ_API_KEYS, INTENT_CLASSIFY_MODEL
 
 logger = logging.getLogger("SCALABLE")
@@ -161,6 +169,27 @@ For multiple tasks, separate with commas: task_type1 query1, task_type2 query2
    "Find coffee shops near me on Google Maps" → site_search maps|coffee shops near me
    "Search eBay for vintage cameras" → site_search ebay|vintage cameras
 
+-> 'osint_ip (ip|domain|me)' — IP geolocation / whois lookup. Use 'me' if user asks about their own IP.
+   "Where is 8.8.8.8 located" → osint_ip 8.8.8.8
+   "Whois google.com" → osint_ip google.com
+   "What's my IP" → osint_ip me
+
+-> 'osint_email (email)' — Email breach / pwned check.
+   "Check if test@gmail.com has been pwned" → osint_email test@gmail.com
+
+-> 'osint_username (username)' — Find a username across social platforms.
+   "Find the username cryptoking across social media" → osint_username cryptoking
+
+-> 'osint_phone (phone_number)' — Phone number info / lookup.
+   "Whose number is +14155552671" → osint_phone +14155552671
+
+-> 'osint_domain (domain)' — Domain intel: DNS records, subdomains, tech stack, headers.
+   "Get DNS records for example.com" → osint_domain example.com
+
+-> 'osint_location (place or query)' — Map / satellite / real-world location lookup and geoint tools.
+   "Show me a satellite view of the Eiffel Tower" → osint_location Eiffel Tower
+   "Map the area around Times Square" → osint_location Times Square, New York
+
 -> 'reminder (full reminder request)' — Set a reminder/timer. Keep the ENTIRE original phrase including the time duration, so it can be parsed later.
    "Remind me to call mom in 10 minutes" → reminder remind me to call mom in 10 minutes
    "Set a reminder to check the oven in 20 minutes" → reminder set a reminder to check the oven in 20 minutes
@@ -182,6 +211,7 @@ When the user is correcting a previous task, use conversation history to underst
 *** "Search for X on Amazon/Wikipedia/Maps/Flipkart/eBay" → site_search (NOT google_search) — use google_search only for plain "search Google" or unspecified-site searches ***
 *** Pure math questions ("what is X * Y", "calculate X") → calculate, with the expression converted to standard math symbols (+, -, *, /) ***
 *** "Remind me..." / "set a reminder..." / "set a timer..." → reminder, keep the FULL original phrase (including the duration) as the query so it can be parsed ***
+*** OSINT requests: IP → osint_ip, email breach → osint_email, username hunt → osint_username, phone → osint_phone, domain/DNS/subdomain → osint_domain, maps/satellite/geoint → osint_location. Do NOT convert these to google_search. ***
 *** Output ONLY the structured response. No explanation. No extra text. ***"""
 
 class BrainService:
@@ -748,6 +778,11 @@ Classify. Output EXACTLY ONE category name."""
                 query = self._extract_search_query(msg)
                 tasks.append(f"google_search {query}".strip())
 
+        # --- OSINT detection (rule-based fallback) ---
+        osint_task = self._detect_osint_task(msg)
+        if osint_task:
+            tasks.append(osint_task)
+
         if re.search(r"\b(calculate|what is|what's)\b.*\d", m) and any(op in m for op in ["+", "-", "*", "/", "x ", "times", "plus", "minus", "divided"]):
             expr = re.sub(r"\b(calculate|what is|what's)\b", "", msg, flags=re.I).strip(" ?.!")
             tasks.append(f"calculate {expr}".strip())
@@ -785,6 +820,9 @@ Classify. Output EXACTLY ONE category name."""
         "jarvis4everyone.com": "https://jarvis4everyone.com",
         "my website": "https://jarvisforeveryone.com",
         "jarvisforeveryone.com": "https://jarvisforeveryone.com",
+
+        # --- Categorized sites (editing / cyber / osint / dev / shopping / edu / media / tools) ---
+        **get_extra_sites(),
     }
 
     def _strip_filler(self, msg: str) -> str:
@@ -808,6 +846,49 @@ Classify. Output EXACTLY ONE category name."""
         cleaned = re.sub(r'\s+(?:please|pls|plz)\s*[.!?]*$', '', cleaned, flags=re.I).strip()
         cleaned = re.sub(r'\s+(?:for me|right now|now|asap)\s*[.!?]*$', '', cleaned, flags=re.I).strip()
         return cleaned if cleaned else msg.strip()
+
+    def _detect_osint_task(self, msg: str):
+        """Detect OSINT-style requests and map them to an osint_* task with the
+        right target. Returns a task string like 'osint_ip 8.8.8.8' or None."""
+
+        m_lower = msg.lower()
+
+        ip_match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", msg)
+
+        if ip_match and any(k in m_lower for k in ["ip", "geolocate", "locate", "where is", "whois"]):
+            return f"osint_ip {ip_match.group(0)}"
+
+        if "ip" in m_lower.split() or "my ip" in m_lower:
+            return "osint_ip me"
+
+        email_match = re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", msg)
+        if email_match and any(k in m_lower for k in ["email", "breach", "pwned", "leak", "compromi"]):
+            return f"osint_email {email_match.group(0)}"
+
+        # "check if X@Y.com has been pwned" style — email alone with breach words
+        if email_match:
+            return f"osint_email {email_match.group(0)}"
+
+        user_match = re.search(r"@(\w{2,})\b", msg)
+        if user_match and any(k in m_lower for k in ["username", "social", "profile", "osint", "sherlock"]):
+            return f"osint_username {user_match.group(1)}"
+
+        if any(k in m_lower for k in ["username", "social media accounts", "all profiles"]):
+            words = msg.split()
+            for i, w in enumerate(words):
+                if "username" in w.lower() and i + 1 < len(words):
+                    return f"osint_username {words[i + 1].strip('?,.!')}"
+
+        phone_match = re.search(r"\+?\d[\d\s-]{7,14}\d", msg)
+        if phone_match and any(k in m_lower for k in ["phone", "number", "who owns", "whose number"]):
+            return f"osint_phone {phone_match.group(0).strip()}"
+
+        if any(k in m_lower for k in ["osint", "map my location", "find my location", "where am i",
+                                       "reverse image", "exif", "metadata of photo", "coordinates"]):
+            query = msg.strip()
+            return f"osint_lookup {query}"
+
+        return None
 
     def _extract_site_search(self, msg: str) -> tuple:
         """Best-effort extraction of (site, query) from a raw message when the
