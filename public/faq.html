@@ -2,15 +2,15 @@
 <html lang="en">
 
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-QW43LYP6E6"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QW43LYP6E6"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
 
-  gtag('config', 'G-QW43LYP6E6');
-</script>
+        gtag('config', 'G-QW43LYP6E6');
+    </script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -544,6 +544,67 @@
                 width: calc(100% - 24px);
                 bottom: 12px;
                 padding: 20px;
+            }
+        }
+
+        /* --- Mobile header: the 3-column grid above overflows on narrow screens
+   (brand + centered nav + back-link all fighting for space with no wrap).
+   Below 700px, switch to a simpler layout that shrinks gracefully instead
+   of clipping or forcing horizontal scroll. --- */
+        @media (max-width: 700px) {
+            .wrap {
+                padding: 0 20px;
+            }
+
+            header .wrap {
+                display: flex;
+                flex-wrap: wrap;
+                row-gap: 10px;
+                column-gap: 12px;
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .brand {
+                order: 1;
+                font-size: 16px;
+            }
+
+            .back-link {
+                order: 2;
+                margin-left: auto;
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+
+            .site-nav {
+                order: 3;
+                flex-basis: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+                gap: 4px;
+                row-gap: 6px;
+            }
+
+            .site-nav a {
+                font-size: 14px;
+                padding: 6px 8px;
+            }
+
+            .site-nav a+a {
+                border-left: none;
+                padding-left: 8px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .brand {
+                font-size: 15px;
+            }
+
+            .back-link {
+                font-size: 12px;
+                padding: 5px 8px;
             }
         }
     </style>

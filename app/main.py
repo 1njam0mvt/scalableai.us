@@ -1584,6 +1584,7 @@ _public_dir = Path(__file__).resolve().parent.parent / "public"
 def _public_page(filename: str) -> FileResponse:
     return FileResponse(
         _public_dir / filename,
+        media_type="text/html; charset=utf-8",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
 

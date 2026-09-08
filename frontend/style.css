@@ -217,6 +217,14 @@ body.guest-mode .guest-account-prompt {
     grid-template-columns: 1fr 1fr;
 }
 
+/* Collapsed sidebar: hide Log in / Sign up here — they only fit and read
+   well in the expanded sidebar. Help center / Report a bug (added above)
+   remain visible for guests in collapsed mode instead. Expanded-sidebar
+   behavior above is untouched. */
+.sidebar.collapsed .guest-account-prompt {
+    display: none !important;
+}
+
 .guest-account-prompt a {
     display: flex;
     align-items: center;
