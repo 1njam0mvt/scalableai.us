@@ -4078,6 +4078,7 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     right: 0;
     width: min(310px, calc(100vw - 24px));
     max-height: min(70vh, 520px);
+    max-height: min(70dvh, 520px);
     background: var(--bg-2);
     border: 1px solid var(--line-strong);
     border-radius: var(--r-md);
@@ -4097,6 +4098,28 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     transform: translateY(0) scale(1);
     opacity: 1;
     pointer-events: auto;
+}
+
+/* Mobile: anchoring purely below the trigger button (the desktop
+   behavior above) can push the panel past the bottom of a short mobile
+   viewport with no way to scroll it into view, since only the panel's
+   own inner content scrolls, not the page around it. Below 700px,
+   center it as a fixed-position sheet instead so it's always fully
+   reachable regardless of where the trigger sits. */
+@media (max-width: 700px) {
+    .settings-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -48%) scale(0.98);
+        width: min(360px, calc(100vw - 32px));
+        max-height: min(80vh, 80dvh);
+    }
+
+    .settings-panel.open {
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 /* Activity + search results are docked into the layout, not floated over it:
