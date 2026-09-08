@@ -205,6 +205,32 @@ class ChatService:
             logger.warning("Failed to load session %s from disk: %s", session_id, e)
             return False
 
+    def list_saved_chats_for_user(self, username: str) -> list:
+        """Return all persisted chats belonging to a user (for reopening old chats)."""
+        result = []
+        try:
+            for filepath in CHATS_DATA_DIR.glob("chat_*.json"):
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    continue
+                if data.get("username") != username:
+                    continue
+                messages = data.get("messages") or []
+                if not messages:
+                    continue
+                result.append({
+                    "session_id": data.get("session_id") or filepath.stem.replace("chat_", "", 1),
+                    "title": data.get("title") or (messages[0].get("content", "")[:60] if isinstance(messages[0], dict) else "Chat"),
+                    "updated_at": data.get("updated_at"),
+                    "message_count": len(messages),
+                })
+        except Exception as e:
+            logger.error("list_saved_chats_for_user failed: %s", e)
+        result.sort(key=lambda c: c.get("updated_at") or "", reverse=True)
+        return result
+
     def validate_session_id(self, session_id: str) -> bool:
         if not session_id or not session_id.strip():
             return False
@@ -248,6 +274,10 @@ class ChatService:
         self.sessions[session_id].append(ChatMessage(role=role, content=content))
 
     def get_chat_history(self, session_id: str) -> List[ChatMessage]:
+        # Auto-recover from disk if this process doesn't have it in memory
+        # (e.g. server restarted and user reopens a previous chat).
+        if session_id not in self.sessions and self.validate_session_id(session_id):
+            self.load_session_from_disk(session_id)
         return self.sessions.get(session_id, [])
 
     def format_history_for_llm(self, session_id: str, exclude_last: bool = False) -> List[tuple]:
@@ -421,7 +451,7 @@ class ChatService:
             yield {"_activity": {"event": "routing", "route": "vision"}}
             yield {"_activity": {"event": "vision_analyzing", "message": "Analyzing image..."}}
             yield {"_activity": {"event": "streaming_started", "route": "vision"}}
-            
+
             prompt = (user_message or "").replace(CAMERA_BYPASS_TOKEN, "").strip() or "What do you see in this image?"
             clean_msg = prompt or "What do you see in this image?"
 
@@ -443,14 +473,14 @@ class ChatService:
         category = CATEGORY_GENERAL
         primary_elapsed_ms = 0
         primary_method = "default"
-        
+
         if self.brain_service:
             category, primary_method, primary_elapsed_ms = self.brain_service.classify_primary(
                 user_message, chat_history, key_index=brain_idx if brain_idx is not None else 0
             )
-            
-        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}} 
-        
+
+        yield {"_activity": {"event": "decision", "query_type": category, "reasoning": primary_method.capitalize(), "elapsed_ms": primary_elapsed_ms}}
+
         if category == CATEGORY_CAMERA:
             yield {"_activity": {"event": "routing", "route": "camera"}}
             if imgbase64:
@@ -527,7 +557,7 @@ class ChatService:
                 if instant_response.googlesearches or instant_response.youtubesearches: action_summary.append("search")
                 if instant_response.cam: action_summary.append("camera")
                 if instant_response.reminder: action_summary.append("reminder")
-                
+
                 yield {"_activity": {"event": "actions_emitted","message": ", ".join(action_summary) or "actions"}}
                 yield {"_actions": actions}
 
@@ -576,7 +606,7 @@ class ChatService:
             self.save_chat_session(session_id)
             elapsed_scalable = time.perf_counter() - t0_scalable
             logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
-            
+
             # If it was purely a task, we are done. If mixed, we continue to regular chat generation below.
             if category == CATEGORY_TASK:
                 return
@@ -783,7 +813,10 @@ class ChatService:
             return
 
         messages = self.sessions[session_id]
-        safe_session_id = session_id.replace("-", "_").replace(" ", "_")
+        # IMPORTANT: must match load_session_from_disk's sanitization exactly,
+        # otherwise the chat file is saved under one name and loaded from another
+        # (old chats appear "lost" after a server restart).
+        safe_session_id = session_id.replace("/", "_").replace("\\", "_")
         filename = f"chat_{safe_session_id}.json"
         filepath = CHATS_DATA_DIR / filename
 

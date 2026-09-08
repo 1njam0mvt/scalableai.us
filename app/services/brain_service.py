@@ -207,10 +207,10 @@ class BrainService:
 
                 logger.info("[BRAIN] Two-stage decision model initialized (%s) with %d key(s)",
                             INTENT_CLASSIFY_MODEL, len(self._llms))
-                
+
             except Exception as e:
                 logger.warning("[BRAIN] Failed to create Groq: %s", e)
-                
+
         if not self._llms and not groq_service:
             logger.warning("[BRAIN] No Groq. Will use rule-based fallback.")
 
@@ -280,7 +280,7 @@ class BrainService:
                                         "open the webcam", "start the camera", "turn on the camera"]):
             self._last_task_decisions = [("open_webcam", "")]
             return (["open_webcam"], "rule-fast", 0)
-        
+
         if any(x in m_lower for x in ["close webcam", "turn off camera", "stop camera",
                                         "close the webcam", "stop the camera", "turn off the camera"]):
             self._last_task_decisions = [("close_webcam", "")]
@@ -407,7 +407,7 @@ class BrainService:
                               "that's wrong", "thats wrong", "not f-o-r", "not for ",
                               "the other", "try again", "do that again", "one more time",
                               "no no", "wrong one", "instead", "i didn't say"]
-        
+
         is_correction = any(sig in m_lower for sig in correction_signals)
 
         if not is_correction:
@@ -430,7 +430,7 @@ class BrainService:
                     return f"open {new_domain}"
 
                 return f"{u} (correction: {msg})"
-            
+
             break
 
         return msg
@@ -454,7 +454,7 @@ class BrainService:
                               "that's wrong", "thats wrong", "i said", "not f-o-r", "not for",
                               "the other", "try again", "do that again", "one more time",
                               "no no", "wrong one", "instead", "i didn't say", "not what i"]
-        
+
         if any(sig in m_lower for sig in correction_signals):
             correction_hint = "\n\nNOTE: This message appears to be a CORRECTION or CLARIFICATION of a previous request. Check the conversation history to determine what the user originally asked for, and classify this message as the SAME category as that original request."
 
@@ -469,7 +469,7 @@ Classify. Output EXACTLY ONE category name."""
         self, system_prompt: str, user_content: str, key_index: int,
         valid_options: List[str], default: str
     ) -> Tuple[str, str]:
-        
+
         if self._llms:
             try:
                 from langchain_core.messages import SystemMessage, HumanMessage
@@ -482,7 +482,7 @@ Classify. Output EXACTLY ONE category name."""
                 text = (response.content or "").strip().lower()
                 result = self._parse_single(text, valid_options, default)
                 return (result, "llm")
-            
+
             except Exception as e:
                 logger.warning("[BRAIN] LLM failed: %s. Using rule-based.", e)
 
@@ -494,7 +494,7 @@ Classify. Output EXACTLY ONE category name."""
         self, system_prompt: str, user_content: str, key_index: int,
         valid_options: List[str]
     ) -> Tuple[List[str], str]:
-        
+
         if self._llms:
             try:
                 from langchain_core.messages import SystemMessage, HumanMessage
@@ -507,7 +507,7 @@ Classify. Output EXACTLY ONE category name."""
                 text = (response.content or "").strip().lower()
                 results = self._parse_multi(text, valid_options)
                 return (results, "llm")
-            
+
             except Exception as e:
                 logger.warning("[BRAIN-TASK] LLM failed: %s. Using rule-based.", e)
 
@@ -519,7 +519,7 @@ Classify. Output EXACTLY ONE category name."""
 
         if not text:
             return default
-        
+
         text = text.strip().lower()
 
         for opt in valid_options:
@@ -535,7 +535,7 @@ Classify. Output EXACTLY ONE category name."""
 
         if not text:
             return ["unknown"]
-        
+
         results = []
         seen = set()
 
@@ -558,7 +558,7 @@ Classify. Output EXACTLY ONE category name."""
     def _run_llm_structured(
         self, system_prompt: str, user_content: str, key_index: int,
     ) -> Tuple[str, str]:
-        
+
         from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
         few_shot_msgs = []
@@ -576,7 +576,7 @@ Classify. Output EXACTLY ONE category name."""
                 response = llm.invoke(messages)
                 text = (response.content or "").strip()
                 return (text, "llm")
-            
+
             except Exception as e:
                 logger.warning("[BRAIN-TASK] Structured LLM failed: %s. Using rule-based.", e)
 
@@ -775,6 +775,10 @@ Classify. Output EXACTLY ONE category name."""
         "figma": "https://www.figma.com", "canva": "https://www.canva.com",
         "zoom": "https://zoom.us", "drive": "https://drive.google.com",
         "maps": "https://www.google.com/maps",
+        "tryhackme": "https://tryhackme.com",
+        "try hack me": "https://tryhackme.com",
+        "hackthebox": "https://www.hackthebox.com",
+        "hack the box": "https://www.hackthebox.com",
         "jarvis for everyone": "https://jarvisforeveryone.com",
         "jarvisforeveryone": "https://jarvisforeveryone.com",
         "jarvis4everyone": "https://jarvis4everyone.com",
@@ -836,12 +840,12 @@ Classify. Output EXACTLY ONE category name."""
 
             if len(urls) <= 1:
                 return {"message": message, "raw": message, "url": urls[0] if urls else "https://www.google.com"}
-            
+
             return [{"message": message, "raw": message, "url": u} for u in urls]
-        
+
         if task_type == "open_webcam":
             return {"message": message, "raw": message}
-        
+
         if task_type == "close_webcam":
             return {"message": message, "raw": message}
 
@@ -881,7 +885,7 @@ Classify. Output EXACTLY ONE category name."""
         def _add(u):
             if not u or u in seen:
                 return
-            
+
             u2 = u.strip().rstrip(".!?,")
             if not u2.startswith("http"):
                 u2 = "https://" + u2
@@ -890,10 +894,10 @@ Classify. Output EXACTLY ONE category name."""
                 p = urlparse(u2)
                 if p.scheme not in ("http", "https"):
                     return
-                
+
             except Exception:
                 return
-            
+
             urls.append(u2)
             seen.add(u2)
 
@@ -906,7 +910,7 @@ Classify. Output EXACTLY ONE category name."""
 
         if urls:
             return urls
-        
+
         for prefix in ["open ", "launch ", "go to ", "visit ", "can you open "]:
 
             if prefix in msg_lower:
@@ -955,7 +959,7 @@ Classify. Output EXACTLY ONE category name."""
             r'play\s+(?:the\s+|a\s+|some\s+|me\s+)?(.+?)(?:\s+on\s+youtube|\s+for\s+me|\s+please\s*)?\s*[.!?]*$',
             lower,
         )
-        
+
         if m:
             result = cleaned[m.start(1):m.end(1)].strip().rstrip(".!?,")
             if result and result.lower() not in ("that", "it", "this", "something"):
@@ -1000,7 +1004,7 @@ Classify. Output EXACTLY ONE category name."""
         extracted = m2 if m2.strip() else extracted
 
         extracted = extracted.rstrip(".!?")
-        
+
         boundaries = [
             r"\s+and\s+write\s", r"\s+and\s+open\s", r"\s+and\s+generate\s",
             r"\s+and\s+draw\s", r"\s+and\s+play\s", r"\s+and\s+search\s",
@@ -1026,7 +1030,7 @@ Classify. Output EXACTLY ONE category name."""
                    "search google for ", "search on google for ", "search on google ",
                    "search for ", "look up ", "find me ", "find ",
                    "google search for ", "google search ", "google "]:
-            
+
             if p in lower:
                 rest = cleaned[lower.find(p) + len(p):].strip().rstrip(".!?")
                 return rest if rest else cleaned.strip()
@@ -1093,7 +1097,7 @@ Classify. Output EXACTLY ONE category name."""
 
         if best_start < 0:
             return m
-        
+
         segment = m[best_start:].strip()
         segment_lower = segment.lower()
 
@@ -1103,6 +1107,6 @@ Classify. Output EXACTLY ONE category name."""
             if match:
                 segment = segment[:match.start()].strip().rstrip(".!?,")
                 break
-            
+
         segment = segment.rstrip(".!?,").strip()
         return segment if segment else m
