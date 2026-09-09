@@ -193,6 +193,7 @@ a {
     position: relative;
     height: 100vh;
     height: 100dvh;
+    height: var(--app-vh, 100dvh);
     width: 100vw;
     display: flex;
     background: var(--bg-0);
@@ -288,6 +289,7 @@ body.guest-mode .account-menu-wrap {
     grid-template-rows: var(--header-h) 1fr minmax(var(--input-h), auto);
     height: 100vh;
     height: 100dvh;
+    height: var(--app-vh, 100dvh);
 }
 
 /* ==========================================================================
@@ -300,6 +302,7 @@ body.guest-mode .account-menu-wrap {
     width: var(--sidebar-w);
     height: 100vh;
     height: 100dvh;
+    height: var(--app-vh, 100dvh);
     display: flex;
     flex-direction: column;
     background: var(--bg-1);
@@ -4181,6 +4184,18 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 .activity-panel.open {
     width: min(var(--panel-w), calc(100% - 24px));
     opacity: 1;
+}
+
+/* Mobile: max-height: calc(100% - 24px) depends on several nested flex/
+   grid ancestors resolving their heights correctly, which mobile browser
+   chrome (address bar showing/hiding) can throw off in practice — same
+   root cause as the settings-panel and language-menu cutoff fixed
+   earlier. Give it its own explicit, viewport-anchored cap instead of
+   relying on inherited percentages. */
+@media (max-width: 700px) {
+    .activity-panel.open {
+        max-height: min(calc(100dvh - 140px), calc(100vh - 140px), calc(var(--app-vh, 100dvh) - 140px));
+    }
 }
 
 

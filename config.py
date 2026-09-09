@@ -32,7 +32,7 @@ USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 
 # Cap on a single user's memory file, to keep prompts bounded and prevent
 # unbounded disk growth per user.
-USER_MEMORY_MAX_BYTES = 20_000
+USER_MEMORY_MAX_BYTES = 100_000
 
 # Context files injected into a project's AI prompt are capped so a huge
 # upload can't blow out the model's context window or the request payload.
@@ -80,7 +80,7 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 HF_API_KEY = os.getenv("HF_API_KEY", "")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
-MAX_CHAT_HISTORY_TURNS = 10
+MAX_CHAT_HISTORY_TURNS = 25
 MAX_MESSAGE_LENGTH = 32_000
 ASSISTANT_NAME = (os.getenv("ASSISTANT_NAME", "").strip() or "Scalable")
 SCALABLE_USER_TITLE = os.getenv("SCALABLE_USER_TITLE", "").strip()

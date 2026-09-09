@@ -42,11 +42,16 @@ if __name__ == "__main__":
     _validated_ok = _validate_startup()
     _ensure_thinking_audio()
 
-    port = int(os.environ.get("PORT", 8000))
     is_production = os.environ.get("RENDER") == "true" or os.environ.get("ENV") == "production"
 
     # Defensive: PORT must be a sane integer, and must not be privileged
     # (binding low ports needs admin/root and will fail on Render/Windows).
+    try:
+        port = int(os.environ.get("PORT", 8000))
+    except (ValueError, TypeError):
+        print(f"[WARN] PORT={os.environ.get('PORT')!r} is not a valid integer. Falling back to 8000.")
+        port = 8000
+
     if not (1 <= port <= 65535):
         print(f"[ERROR] PORT={port} is out of range (1-65535). Falling back to 8000.")
         port = 8000

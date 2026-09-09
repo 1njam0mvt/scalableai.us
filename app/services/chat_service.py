@@ -596,16 +596,24 @@ class ChatService:
                     else: bg_labels.append(bt["type"])
                 text_parts.append(f"I'm working on the {', '.join(bg_labels)} in the background. I'll open it for you when it's ready.")
 
-            text = " ".join(text_parts) if text_parts else "Done."
-            self.sessions[session_id][-1].content = text
-            yield text
+            # If the task layer produced no real content (classifier sent a
+            # general message here, no intents matched, no background work),
+            # don't show the canned "Done." — fall through to normal chat.
+            task_text = " ".join(text_parts) if text_parts else ""
+            if not task_text and not has_instant_actions and not bg_task_ids:
+                logger.info("[SCALABLE-STREAM] Task flow produced no actions; falling back to general chat")
+                category = CATEGORY_GENERAL
+            else:
+                text = task_text or "Done."
+                self.sessions[session_id][-1].content = text
+                yield text
 
-            if bg_task_ids:
-                yield {"_background_tasks": bg_task_ids}
+                if bg_task_ids:
+                    yield {"_background_tasks": bg_task_ids}
 
-            self.save_chat_session(session_id)
-            elapsed_scalable = time.perf_counter() - t0_scalable
-            logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
+                self.save_chat_session(session_id)
+                elapsed_scalable = time.perf_counter() - t0_scalable
+                logger.info("[SCALABLE-STREAM] Task flow complete in %.2fs | tasks: %s | bg: %d", elapsed_scalable, task_types, len(bg_task_ids))
 
             # If it was purely a task, we are done. If mixed, we continue to regular chat generation below.
             if category == CATEGORY_TASK:
@@ -613,6 +621,9 @@ class ChatService:
 
         if category == CATEGORY_MIXED:
             yield {"_activity": { "event": "streaming_started","route": "mixed"}}
+            if bg_task_ids:
+                yield {"_background_tasks": bg_task_ids}
+
             stream_svc = self.realtime_service if self.realtime_service else self.groq_service
             chunk_count = 0
             t0 = time.perf_counter()
@@ -657,6 +668,9 @@ class ChatService:
             elapsed_scalable = time.perf_counter() - t0_scalable
             logger.info("[SCALABLE-STREAM] Mixed flow complete in %.2fs | tasks: %s", elapsed_scalable, task_types)
             return
+
+        if bg_task_ids:
+            yield {"_background_tasks": bg_task_ids}
 
         # General / Realtime routing
         use_realtime = category == CATEGORY_REALTIME and self.realtime_service

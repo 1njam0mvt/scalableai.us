@@ -31,8 +31,8 @@ ALL_TASK_TYPES: List[str] = [
     "calculate", "site_search", "reminder",
 ]
 
-MAX_CONTEXT_TURNS = 6
-MAX_MESSAGE_PREVIEW = 600
+MAX_CONTEXT_TURNS = 20
+MAX_MESSAGE_PREVIEW = 2000
 
 _PRIMARY_BRAIN_PROMPT = """You are the decision-maker for SCALABLE. Classify the user's message into EXACTLY ONE category.
 

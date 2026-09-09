@@ -2,6 +2,30 @@ const API = (typeof window !== 'undefined' && window.location.origin)
     ? window.location.origin
     : 'http://localhost:8000';
 
+// ---- Real visible viewport height, kept in sync via JS ----
+// CSS 100dvh is the right idea, but some mobile browsers (notably some
+// Android WebViews / older Chrome versions) don't recompute it live when
+// the on-screen keyboard opens — only when the browser's own address bar
+// changes — which is exactly what causes a bottom-pinned input bar to
+// "slip" out of place on some devices but not others. The VisualViewport
+// API reports the true visible area on every device that supports it, so
+// we mirror it into a CSS variable that --app-vh below can use, with
+// 100dvh as the fallback for browsers without VisualViewport support.
+(function () {
+    function updateAppHeight() {
+        var vv = window.visualViewport;
+        var h = vv ? vv.height : window.innerHeight;
+        document.documentElement.style.setProperty('--app-vh', h + 'px');
+    }
+    updateAppHeight();
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateAppHeight);
+        window.visualViewport.addEventListener('scroll', updateAppHeight);
+    }
+    window.addEventListener('resize', updateAppHeight);
+    window.addEventListener('orientationchange', updateAppHeight);
+})();
+
 let sessionId = null;
 let currentMode = 'scalable';
 let isStreaming = false;
@@ -795,10 +819,10 @@ function scheduleReminder(reminder) {
             try {
                 new Notification(title, { body, icon: '/app/favicon.ico' });
             } catch (_) {
-                showReminderToast(body);
+                showToast(`⏰ Reminder: ${body}`);
             }
         } else {
-            showReminderToast(body);
+            showToast(`⏰ Reminder: ${body}`);
         }
 
         // Also play a short beep so it's noticeable even if the tab is backgrounded.
@@ -821,12 +845,6 @@ function scheduleReminder(reminder) {
 
     showToast(`Reminder set: "${reminder.message}" in ${reminder.label}`);
     setTimeout(deliver, reminder.delay_seconds * 1000);
-}
-
-// Show a persistent reminder toast (used when Notification API is unavailable,
-// e.g. inside a sandboxed iframe). Auto-dismisses after 30s instead of 5s.
-function showReminderToast(body) {
-    showToast(`⏰ Reminder: ${body}`, 30000);
 }
 
 function handleBackgroundTasks(tasks, contentEl) {
