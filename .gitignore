@@ -24,6 +24,9 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Runtime artifacts
+.server_pid
+
 # Editor/OS
 .vscode/
 .DS_Store
