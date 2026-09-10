@@ -280,6 +280,24 @@ class ChatService:
             self.load_session_from_disk(session_id)
         return self.sessions.get(session_id, [])
 
+    def session_exists(self, session_id: str) -> bool:
+        """True if this session has any messages, in memory or on disk.
+        Lets callers tell "empty new chat" apart from "never existed /
+        data is gone" instead of both looking like an empty list."""
+        if session_id in self.sessions:
+            return bool(self.sessions[session_id])
+        if self.validate_session_id(session_id) and self.load_session_from_disk(session_id):
+            return bool(self.sessions.get(session_id))
+        return False
+
+    def get_session_owner(self, session_id: str) -> Optional[str]:
+        """Returns the username a session is attached to, loading from disk
+        if needed. None if the session has no recorded owner (legacy chat
+        saved before ownership tracking, or session doesn't exist)."""
+        if session_id not in self.session_meta and self.validate_session_id(session_id):
+            self.load_session_from_disk(session_id)
+        return self.session_meta.get(session_id, {}).get("username")
+
     def format_history_for_llm(self, session_id: str, exclude_last: bool = False) -> List[tuple]:
         messages = self.get_chat_history(session_id)
         history = []
@@ -302,8 +320,10 @@ class ChatService:
             history = history[-MAX_CHAT_HISTORY_TURNS:]
         return history
 
-    def process_message(self, session_id: str, user_message: str) -> str:
+    def process_message(self, session_id: str, user_message: str, username: Optional[str] = None) -> str:
         logger.info("[GENERAL] Session: %s | User: %.200s", session_id[:12], user_message)
+        if username:
+            self.set_session_meta(session_id, username=username)
         self.add_message(session_id, "user", user_message)
         chat_history = self.format_history_for_llm(session_id, exclude_last=True)
         logger.info("[GENERAL] History pairs sent to LLM: %d", len(chat_history))
@@ -313,11 +333,13 @@ class ChatService:
         logger.info("[GENERAL] Response length: %d chars | Preview: %.120s", len(response), response)
         return response
 
-    def process_realtime_message(self, session_id: str, user_message: str) -> str:
+    def process_realtime_message(self, session_id: str, user_message: str, username: Optional[str] = None) -> str:
         if not self.realtime_service:
             raise ValueError("Realtime service is not initialized. Cannot process realtime queries.")
 
         logger.info("[REALTIME] Session: %s | User: %.200s", session_id[:12], user_message)
+        if username:
+            self.set_session_meta(session_id, username=username)
         self.add_message(session_id, "user", user_message)
         chat_history = self.format_history_for_llm(session_id, exclude_last=True)
         logger.info("[REALTIME] History pairs sent to LLM: %d", len(chat_history))
@@ -327,8 +349,10 @@ class ChatService:
         logger.info("[REALTIME] Response length: %d chars | Preview: %.120s", len(response), response)
         return response
 
-    def process_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
+    def process_message_stream(self, session_id: str, user_message: str, username: Optional[str] = None) -> Iterator[Union[str, Dict[str, Any]]]:
         logger.info("[GENERAL-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
+        if username:
+            self.set_session_meta(session_id, username=username)
         self.add_message(session_id, "user", user_message)
         self.add_message(session_id, "assistant", "")
         chat_history = self.format_history_for_llm(session_id, exclude_last=True)
@@ -365,11 +389,13 @@ class ChatService:
             logger.info("[GENERAL-STREAM] Completed | Chunks: %d | Response length: %d chars",  chunk_count, len(final_response))
             self.save_chat_session(session_id)
 
-    def process_realtime_message_stream(self, session_id: str, user_message: str) -> Iterator[Union[str, Dict[str, Any]]]:
+    def process_realtime_message_stream(self, session_id: str, user_message: str, username: Optional[str] = None) -> Iterator[Union[str, Dict[str, Any]]]:
         if not self.realtime_service:
             raise ValueError("Realtime service is not initialized.")
 
         logger.info("[REALTIME-STREAM] Session: %s | User: %.200s", session_id[:12], user_message)
+        if username:
+            self.set_session_meta(session_id, username=username)
         self.add_message(session_id, "user", user_message)
         self.add_message(session_id, "assistant", "")
         chat_history = self.format_history_for_llm(session_id, exclude_last=True)

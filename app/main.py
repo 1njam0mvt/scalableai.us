@@ -1055,7 +1055,7 @@ async def chat(request: ChatRequest, username: str = Depends(require_auth)):
 
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        response_text = chat_service.process_message(session_id, request.message)
+        response_text = chat_service.process_message(session_id, request.message, username=username)
         chat_service.save_chat_session(session_id)
         logger.info("[API /chat] Done | session_id=%s | response_len=%d", session_id[:12], len(response_text))
         return ChatResponse(response=response_text, session_id=session_id)
@@ -1337,7 +1337,7 @@ async def chat_stream(request: ChatRequest, username: str = Depends(require_auth
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
 
-        chunk_iter = chat_service.process_message_stream(session_id, request.message)
+        chunk_iter = chat_service.process_message_stream(session_id, request.message, username=username)
         return StreamingResponse(
             _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, tts_voice=(request.personalization.voice if request.personalization else None)),
             media_type="text/event-stream",
@@ -1372,7 +1372,7 @@ async def chat_realtime(request: ChatRequest, username: str = Depends(require_au
 
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        response_text = chat_service.process_realtime_message(session_id, request.message)
+        response_text = chat_service.process_realtime_message(session_id, request.message, username=username)
         chat_service.save_chat_session(session_id)
         logger.info("[API /chat/realtime] Done | session_id=%s | response_len=%d", session_id[:12], len(response_text))
         return ChatResponse(response=response_text, session_id=session_id)
@@ -1406,7 +1406,7 @@ async def chat_realtime_stream(request: ChatRequest, username: str = Depends(req
 
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message)
+        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, username=username)
         return StreamingResponse(
             _stream_generator(session_id, chunk_iter, is_realtime=True, tts_enabled=request.tts, tts_voice=(request.personalization.voice if request.personalization else None)),
             media_type="text/event-stream",
@@ -1565,11 +1565,26 @@ async def get_chat_history(session_id: str, username: str = Depends(require_auth
         raise HTTPException(status_code=400, detail="Invalid session_id format")
 
     try:
+        # Distinguish "this chat doesn't exist / its data is gone" (404) from
+        # "it exists but isn't yours" (403) from "it's a legit empty chat"
+        # (200, empty list) - the old code returned 200+[] for all three,
+        # which is why a stale sidebar entry looked like a silent no-op
+        # click instead of a clear error.
+        if not chat_service.session_exists(session_id):
+            raise HTTPException(status_code=404, detail="This conversation could not be found. It may have been deleted or lost after a server restart.")
+
+        owner = chat_service.get_session_owner(session_id)
+        if owner is not None and owner != username:
+            raise HTTPException(status_code=403, detail="This conversation doesn't belong to your account.")
+
         messages = chat_service.get_chat_history(session_id)
         return {
             "session_id": session_id,
             "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error(f"Error retrieving history: {e}", exc_info=True)

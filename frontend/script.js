@@ -378,6 +378,7 @@ async function syncRecentChatsFromServer() {
 
         const local = loadRecentChats();
         const localById = new Map(local.map(c => [c.id, c]));
+        const serverIds = new Set(serverSessions.map(s => s.session_id));
 
         serverSessions.forEach(s => {
             const existing = localById.get(s.session_id);
@@ -391,6 +392,19 @@ async function syncRecentChatsFromServer() {
                 ts: s.updated_at ? s.updated_at * 1000 : (existing ? existing.ts : Date.now()),
             });
         });
+
+        // Drop local entries the server no longer knows about at all - e.g.
+        // the underlying chat file was lost (disk reset, manual cleanup).
+        // Without this, a dead entry sits in the sidebar forever and only
+        // gets cleared the next time the user clicks it and hits a 404.
+        // The currently open chat is exempt so a brand-new chat (not yet
+        // saved server-side because no message has been sent in it yet)
+        // doesn't get wiped out from under the user mid-conversation.
+        for (const id of Array.from(localById.keys())) {
+            if (!serverIds.has(id) && id !== sessionId) {
+                localById.delete(id);
+            }
+        }
 
         const merged = Array.from(localById.values()).sort((a, b) => b.ts - a.ts);
         saveRecentChats(merged);
@@ -1761,8 +1775,20 @@ async function loadChatSession(id) {
     try {
         const res = await authFetch(`${API}/chat/history/${encodeURIComponent(id)}`);
         if (!res.ok) {
-            showToast('That conversation could not be loaded.');
-            deleteRecentChat(id);
+            // 404/403 mean the chat is genuinely gone or not yours - stop
+            // pointing at it from the sidebar. A transient error (503/500/
+            // network hiccup) shouldn't nuke a sidebar entry that's still
+            // good, so only clean up on the cases that mean "this chat
+            // will never load."
+            let detail = 'That conversation could not be loaded.';
+            try {
+                const errBody = await res.json();
+                if (errBody && errBody.detail) detail = errBody.detail;
+            } catch (_) { /* body wasn't JSON, keep default message */ }
+            showToast(detail);
+            if (res.status === 404 || res.status === 403) {
+                deleteRecentChat(id);
+            }
             return;
         }
         const data = await res.json();
