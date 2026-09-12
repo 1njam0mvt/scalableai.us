@@ -43,7 +43,6 @@ let orb = null;
 let recognition = null;
 let ttsPlayer = null;
 let pendingModePrefix = null;
-let userClosedActivity = false;
 const AUTH_TOKEN_KEY = 'scalable_auth_token';
 const GUEST_TOKEN_KEY = 'scalable_guest_token';
 const THEME_KEY = 'scalable_theme';
@@ -143,7 +142,7 @@ const SETTINGS_KEY = 'scalable_settings';
 const PERSONALIZATION_KEY = 'scalable_personalization';
 const LANGUAGE_KEY = 'scalable_language';
 const TTS_VOICE_KEY = 'scalable_tts_voice';
-const DEFAULT_SETTINGS = { autoOpenActivity: true, autoOpenSearchResults: true, thinkingSounds: true, voiceInterrupt: true };
+const DEFAULT_SETTINGS = { autoOpenSearchResults: true, thinkingSounds: true, voiceInterrupt: true };
 const PRE_STARTER_FILES = ['starter_1', 'starter_2', 'starter_3', 'starter_4', 'starter_5', 'starter_6', 'starter_7', 'starter_8', 'starter_9', 'starter_10'];
 let PRE_STARTER_CACHE = {};
 let settings = { ...DEFAULT_SETTINGS };
@@ -213,7 +212,6 @@ const camPanelHeader = $('cam-panel-header');
 const camPanelResize = $('cam-panel-resize');
 const settingsPanel = $('settings-panel');
 const settingsClose = $('settings-close');
-const toggleAutoActivity = $('toggle-auto-activity');
 const toggleAutoSearch = $('toggle-auto-search');
 const toggleThinkingSounds = $('toggle-thinking-sounds');
 const toggleVoiceInterrupt = $('toggle-voice-interrupt');
@@ -439,7 +437,6 @@ function loadSettings() {
             const parsed = JSON.parse(s);
             settings = { ...DEFAULT_SETTINGS, ...parsed };
         }
-        if (toggleAutoActivity) toggleAutoActivity.checked = settings.autoOpenActivity;
         if (toggleAutoSearch) toggleAutoSearch.checked = settings.autoOpenSearchResults;
         if (toggleThinkingSounds) toggleThinkingSounds.checked = settings.thinkingSounds;
         if (toggleVoiceInterrupt) toggleVoiceInterrupt.checked = settings.voiceInterrupt;
@@ -1008,7 +1005,6 @@ async function captureFrameAsBase64Safe() {
 
 async function sendMessageWithImage(text, imgBase64) {
     if (!text || !imgBase64 || isStreaming) return;
-    userClosedActivity = false;
     const messageToSend = text + ' ' + CAM_BYPASS_TOKEN;
     addMessage('user', text);
     addTypingIndicator();
@@ -1062,7 +1058,7 @@ async function sendMessageWithImage(text, imgBase64) {
                     if (data.activity) {
                         appendActivity(data.activity);
                         if (activityToggle) activityToggle.style.display = '';
-                        if (activityPanel && settings.autoOpenActivity && !userClosedActivity) { activityPanel.classList.add('open'); updatePanelOverlay(); }
+                        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
                     }
                     if (data.actions) handleActions(data.actions, contentEl);
                     if (data.background_tasks) handleBackgroundTasks(data.background_tasks, contentEl);
@@ -1209,10 +1205,10 @@ function bindEvents() {
         });
     }
     if (activityToggle) {
-        activityToggle.addEventListener('click', () => {
+        activityToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
             if (activityPanel) {
-                const nowOpen = activityPanel.classList.toggle('open');
-                userClosedActivity = !nowOpen;
+                activityPanel.classList.toggle('open');
                 updatePanelOverlay();
             }
         });
@@ -1220,7 +1216,6 @@ function bindEvents() {
     if (activityClose && activityPanel) {
         activityClose.addEventListener('click', () => {
             activityPanel.classList.remove('open');
-            userClosedActivity = true;
             updatePanelOverlay();
         });
     }
@@ -1234,12 +1229,6 @@ function bindEvents() {
         settingsClose.addEventListener('click', () => {
             settingsPanel.classList.remove('open');
             updatePanelOverlay();
-        });
-    }
-    if (toggleAutoActivity) {
-        toggleAutoActivity.addEventListener('change', () => {
-            settings.autoOpenActivity = toggleAutoActivity.checked;
-            saveSettings();
         });
     }
     if (toggleAutoSearch) {
@@ -1760,7 +1749,7 @@ window.renderRecentChats = renderRecentChats;
     }
 })();
 
-document.addEventListener('click', () => {
+document.addEventListener('click', (e) => {
     document.querySelectorAll('.sidebar-history-dropdown.open').forEach(d => d.classList.remove('open'));
     document.querySelectorAll('.sidebar-history-item-menu-wrap.force-visible').forEach(w => w.classList.remove('force-visible'));
     const organizeMenuEl = document.getElementById('sidebar-organize-menu');
@@ -1768,6 +1757,19 @@ document.addEventListener('click', () => {
     const organizeBtnEl = document.getElementById('sidebar-organize-btn');
     if (organizeBtnEl) organizeBtnEl.setAttribute('aria-expanded', 'false');
     document.querySelectorAll('.sidebar-recent-actions.force-visible').forEach(a => a.classList.remove('force-visible'));
+
+    // Corner dropdowns (activity, settings): close on any click outside
+    // their own wrapper, same convention as the sidebar menus above.
+    const activityWrap = document.querySelector('.activity-menu-wrap');
+    if (activityWrap && !activityWrap.contains(e.target) && activityPanel && activityPanel.classList.contains('open')) {
+        activityPanel.classList.remove('open');
+        updatePanelOverlay();
+    }
+    const settingsWrap = document.querySelector('.settings-menu-wrap');
+    if (settingsWrap && !settingsWrap.contains(e.target) && settingsPanel && settingsPanel.classList.contains('open')) {
+        settingsPanel.classList.remove('open');
+        updatePanelOverlay();
+    }
 });
 
 async function loadChatSession(id) {
@@ -1940,30 +1942,53 @@ function escapeAttr(str) {
         .replace(/>/g, '&gt;');
 }
 
+// Human-readable step labels shown in the Activity popover. These describe
+// what's happening in terms of the user's own request (opening a site,
+// searching, replying) rather than internal pipeline/component names —
+// "Primary Brain" and "Route selected" mean nothing to someone who just
+// asked to open Canva. Internal event names and timing data still flow
+// through activity.* for anyone who needs them (e.g. via devtools); this
+// map only controls the text shown in the UI.
 const ACTIVITY_STEPS = {
-    query_detected: { step: 1, label: 'Query detected' },
-    decision: { step: 2, label: 'Primary Brain' },
-    intent_classified: { step: 3, label: 'Task Brain' },
-    routing: { step: 4, label: 'Route selected' },
-    tasks_executing: { step: 0, label: 'Executing tasks' },
-    tasks_completed: { step: 0, label: 'Tasks completed' },
-    actions_emitted: { step: 0, label: 'Actions sent' },
-    vision_analyzing: { step: 0, label: 'Analyzing image' },
-    streaming_started: { step: 5, label: 'Streaming response' },
-    extracting_query: { step: 0, label: 'Extracting query' },
-    searching_web: { step: 0, label: 'Searching web' },
-    search_completed: { step: 0, label: 'Search completed' },
-    context_retrieved: { step: 0, label: 'Context retrieved' },
-    background_dispatched: { step: 0, label: 'Background tasks' },
-    first_chunk: { step: 6, label: 'Core responded' },
+    query_detected: { step: 1, label: 'Reading your message' },
+    decision: { step: 2, label: 'Understanding your request' },
+    intent_classified: { step: 3, label: 'Figuring out what to do' },
+    routing: { step: 4, label: 'Getting started' },
+    tasks_executing: { step: 0, label: 'Working on it' },
+    tasks_completed: { step: 0, label: 'Done' },
+    actions_emitted: { step: 0, label: 'Sending actions' },
+    vision_analyzing: { step: 0, label: 'Looking at the image' },
+    streaming_started: { step: 5, label: 'Writing a reply' },
+    extracting_query: { step: 0, label: 'Preparing a search' },
+    searching_web: { step: 0, label: 'Searching the web' },
+    search_completed: { step: 0, label: 'Search finished' },
+    context_retrieved: { step: 0, label: 'Recalling context' },
+    background_dispatched: { step: 0, label: 'Working in the background' },
+    first_chunk: { step: 6, label: 'Reply started' },
 };
+
+// Maps an internal route/query-type name to what it actually means for
+// the user, for use inside detail text (e.g. "Opening Canva" instead of
+// "Route selected → Task").
+function friendlyRouteNoun(route) {
+    const map = {
+        task: 'that task',
+        mixed: 'that task',
+        general: 'your question',
+        realtime: 'that up to date',
+        vision: 'the image',
+        camera: 'the camera',
+        chat: 'the conversation',
+    };
+    return map[(route || '').toLowerCase()] || 'that';
+}
 
 function appendActivity(activity) {
     if (!activityList || !activity) return;
     const item = document.createElement('div');
     item.className = 'activity-item';
     item.setAttribute('data-event', activity.event || '');
-    const stepInfo = ACTIVITY_STEPS[activity.event] || { step: 0, label: activity.event || 'Activity', icon: 'dot' };
+    const stepInfo = ACTIVITY_STEPS[activity.event] || { step: 0, label: 'Working' };
     let detail = '';
     const addRouteClass = (route) => {
         if (route === 'general') item.classList.add('route-general');
@@ -1974,52 +1999,49 @@ function appendActivity(activity) {
         else if (route === 'chat') item.classList.add('route-chat');
     };
     if (activity.event === 'query_detected') {
-        detail = activity.message || '';
+        detail = 'Got your message and starting to work on it.';
     } else if (activity.event === 'decision') {
-        const ms = activity.elapsed_ms;
-        const timing = ms != null ? ` (${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(2) + ' s'})` : '';
-        const cat = (activity.query_type || '?').charAt(0).toUpperCase() + (activity.query_type || '').slice(1);
-        detail = `${cat} — ${activity.reasoning || ''}${timing}`;
+        detail = `Looked at what you're asking for and picked the best way to handle it.`;
         addRouteClass(activity.query_type);
     } else if (activity.event === 'intent_classified') {
-        detail = (activity.intent || '?').charAt(0).toUpperCase() + (activity.intent || '').slice(1);
+        const what = activity.intent ? activity.intent.replace(/_/g, ' ') : 'what you need';
+        detail = `Working out how to ${what}.`;
         item.classList.add('activity-sub', 'route-task');
     } else if (activity.event === 'routing') {
-        detail = `→ ${(activity.route || '?').charAt(0).toUpperCase() + (activity.route || '').slice(1)}`;
+        detail = `Getting ${friendlyRouteNoun(activity.route)} sorted.`;
         addRouteClass(activity.route);
     } else if (activity.event === 'tasks_executing') {
-        detail = activity.message || 'Running tasks...';
+        detail = activity.message || 'Running the steps needed for this.';
         item.classList.add('activity-sub', 'route-task');
     } else if (activity.event === 'tasks_completed') {
-        detail = activity.message || 'Completed';
+        detail = activity.message || 'That part is done.';
         item.classList.add('activity-sub', 'route-task');
     } else if (activity.event === 'actions_emitted') {
-        detail = activity.message || 'Actions sent';
+        detail = activity.message || 'Sending this to your browser.';
         item.classList.add('activity-sub');
     } else if (activity.event === 'vision_analyzing') {
-        detail = activity.message || 'Analyzing image...';
+        detail = activity.message || 'Taking a look at the image you shared.';
         item.classList.add('activity-sub', 'route-vision');
     } else if (activity.event === 'streaming_started') {
-        detail = `Generating via ${(activity.route || '?').charAt(0).toUpperCase() + (activity.route || '').slice(1)}`;
+        detail = 'Putting the reply together now.';
         addRouteClass(activity.route);
     } else if (activity.event === 'first_chunk') {
-        const ms = activity.elapsed_ms;
-        detail = ms != null ? `Core responded in ${ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(2) + ' s'}` : 'Response started';
+        detail = 'The reply is on its way.';
         addRouteClass(activity.route);
     } else if (activity.event === 'extracting_query') {
-        detail = activity.message || 'Parsing your question for search...';
+        detail = 'Working out exactly what to search for.';
         item.classList.add('activity-sub');
     } else if (activity.event === 'searching_web') {
-        detail = activity.message || (activity.query ? `Query: "${activity.query}"` : 'Scanning Pulse...');
+        detail = activity.query ? `Searching for "${activity.query}".` : 'Searching the web for current info.';
         item.classList.add('activity-sub', 'route-realtime');
     } else if (activity.event === 'search_completed') {
-        detail = activity.message || 'Search completed';
+        detail = 'Found what was needed.';
         item.classList.add('activity-sub', 'route-realtime');
     } else if (activity.event === 'context_retrieved') {
-        detail = activity.message || 'Knowledge base ready';
+        detail = 'Pulled in what it remembers to help answer this.';
         item.classList.add('activity-sub', 'route-general');
     } else {
-        detail = activity.message || (typeof activity === 'object' ? JSON.stringify(activity) : String(activity));
+        detail = activity.message || '';
     }
     const stepNum = stepInfo.step ? `<span class="activity-step">${stepInfo.step}</span>` : '';
     item.innerHTML = `
@@ -2159,7 +2181,6 @@ async function sendMessage(textOverride) {
         text = pendingModePrefix + text;
         clearPendingMode();
     }
-    userClosedActivity = false;
     const visionModeOn = camVisionModeInput && camVisionModeInput.checked;
     const wantsCamera = visionModeOn || isCameraQuery(text) || (camStream && text);
     if (wantsCamera && !text) text = 'What do you see?';
@@ -2201,9 +2222,9 @@ async function sendMessage(textOverride) {
     const messageToSend = imgBase64 ? (text + ' ' + CAM_BYPASS_TOKEN) : text;
     const endpoint = '/chat/scalable/stream';
     if (activityList) {
-        activityList.innerHTML = '<div class="activity-empty" id="activity-empty">Processing...</div>';
+        activityList.innerHTML = '<div class="activity-empty" id="activity-empty">Working on it…</div>';
         if (activityToggle) activityToggle.style.display = '';
-        if (activityPanel && settings.autoOpenActivity && !userClosedActivity) { activityPanel.classList.add('open'); updatePanelOverlay(); }
+        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
     }
     let firstChunkReceived = false;
     let timeoutId = null;
@@ -2261,7 +2282,7 @@ async function sendMessage(textOverride) {
                     if (data.activity) {
                         appendActivity(data.activity);
                         if (activityToggle) activityToggle.style.display = '';
-                        if (activityPanel && settings.autoOpenActivity && !userClosedActivity) { activityPanel.classList.add('open'); updatePanelOverlay(); }
+                        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
                     }
                     if (data.search_results) {
                         renderSearchResults(data.search_results);
