@@ -716,6 +716,171 @@ function initCameraPanel() {
     });
 }
 
+// Icon shown per artifact type on its card — keeps the same globe/code
+// visual language as the rest of the app rather than introducing new iconography.
+function artifactIconSvg(label) {
+    if (label === 'HTML') {
+        return '<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>';
+    }
+    return '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>';
+}
+
+// Per-message copy button — hidden until hover/focus (see CSS), so it
+// doesn't clutter every reply visually. One delegated click handler
+// (below) handles all of these rather than a listener per button, so
+// this factory only needs to build the element itself.
+function createMsgCopyBtn() {
+    const btn = document.createElement('button');
+    btn.className = 'msg-copy-btn';
+    btn.type = 'button';
+    btn.title = 'Copy this reply';
+    btn.setAttribute('aria-label', 'Copy this reply');
+    btn.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>' +
+        '</svg>';
+    return btn;
+}
+
+async function copyTextToClipboard(text, successMsg) {
+    if (!text || !text.trim()) { showToast('Nothing to copy.'); return false; }
+    try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            throw new Error('clipboard API unavailable');
+        }
+        await navigator.clipboard.writeText(text.trim());
+        if (successMsg) showToast(successMsg);
+        return true;
+    } catch (err) {
+        showToast('Could not copy — clipboard access denied.');
+        return false;
+    }
+}
+
+// One delegated listener covers every current and future .msg-copy-btn —
+// no per-message event wiring needed, and it keeps working for messages
+// restored from history or streamed in later.
+if (chatMessages) {
+    chatMessages.addEventListener('click', (e) => {
+        const btn = e.target.closest('.msg-copy-btn');
+        if (!btn) return;
+        const body = btn.closest('.msg-body');
+        const contentEl = body && body.querySelector('.msg-content');
+        if (!contentEl) return;
+        let text = contentEl.textContent.trim();
+        if (text === '...' || text === '(No response)') text = '';
+        copyTextToClipboard(text, 'Copied reply to clipboard.').then((ok) => {
+            if (ok) {
+                btn.classList.add('copied');
+                setTimeout(() => btn.classList.remove('copied'), 1200);
+            }
+        });
+    });
+}
+
+// Selection-to-copy: a small floating button appears near any text the
+// user highlights inside the chat, letting them copy just that paragraph
+// or sentence instead of the whole reply.
+(function setupSelectionCopy() {
+    let popupEl = null;
+
+    function removePopup() {
+        if (popupEl) { popupEl.remove(); popupEl = null; }
+    }
+
+    function showPopupFor(selection) {
+        removePopup();
+        if (!chatMessages) return;
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (!rect || (!rect.width && !rect.height)) return;
+
+        const popup = document.createElement('button');
+        popup.type = 'button';
+        popup.className = 'selection-copy-popup';
+        popup.textContent = 'Copy';
+        popup.style.position = 'fixed';
+        popup.style.left = `${Math.max(8, rect.left + rect.width / 2)}px`;
+        popup.style.top = `${Math.max(8, rect.top - 36)}px`;
+
+        const text = selection.toString();
+        popup.addEventListener('mousedown', (e) => {
+            // mousedown (not click) so this fires before the browser
+            // clears the selection on blur/focus change.
+            e.preventDefault();
+            copyTextToClipboard(text, 'Copied selection to clipboard.');
+            removePopup();
+        });
+
+        document.body.appendChild(popup);
+        popupEl = popup;
+    }
+
+    document.addEventListener('selectionchange', () => {
+        const selection = document.getSelection();
+        if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+            removePopup();
+            return;
+        }
+        // Only offer this inside the chat transcript — selecting text
+        // elsewhere in the app (sidebar, settings) shouldn't show it.
+        const anchorNode = selection.anchorNode;
+        const container = anchorNode && (anchorNode.nodeType === 1 ? anchorNode : anchorNode.parentElement);
+        if (!chatMessages || !container || !chatMessages.contains(container)) {
+            removePopup();
+            return;
+        }
+        showPopupFor(selection);
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        if (popupEl && !popupEl.contains(e.target)) removePopup();
+    });
+    window.addEventListener('scroll', removePopup, true);
+    window.addEventListener('resize', removePopup);
+})();
+
+function renderArtifactCard(artifact, contentEl) {
+    if (!artifact || !contentEl) return;
+    const card = document.createElement('div');
+    card.className = 'artifact-file-card';
+    const filename = artifact.filename || 'artifact.txt';
+    const label = artifact.label || 'TXT';
+    const content = artifact.content || '';
+    card.innerHTML =
+        '<div class="artifact-file-icon" data-kind="' + escapeHtml(label.toLowerCase()) + '">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + artifactIconSvg(label) + '</svg>' +
+        '</div>' +
+        '<div class="artifact-file-info">' +
+        '<div class="artifact-file-name">' + escapeHtml(filename) + '</div>' +
+        '<div class="artifact-file-type">' + escapeHtml(label) + '</div>' +
+        '</div>' +
+        '<button class="artifact-file-download" type="button" title="Download ' + escapeHtml(filename) + '">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' +
+        '</svg></button>';
+
+    const downloadBtn = card.querySelector('.artifact-file-download');
+    downloadBtn.addEventListener('click', () => {
+        try {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+            showToast('Could not download the file — please try again.');
+        }
+    });
+
+    contentEl.appendChild(card);
+    scrollToBottom();
+}
+
 function handleActions(actions, contentEl) {
     if (!actions) return;
     if (!contentEl) return;
@@ -1062,6 +1227,7 @@ async function sendMessageWithImage(text, imgBase64) {
                     }
                     if (data.actions) handleActions(data.actions, contentEl);
                     if (data.background_tasks) handleBackgroundTasks(data.background_tasks, contentEl);
+                    if (data.artifact) renderArtifactCard(data.artifact, contentEl);
                     if ('chunk' in data) {
                         const chunkText = data.chunk || '';
                         fullResponse += chunkText;
@@ -1190,11 +1356,19 @@ function bindEvents() {
     const clipboardCopyBtn = $('clipboard-copy-btn');
     if (clipboardCopyBtn) {
         clipboardCopyBtn.addEventListener('click', async () => {
+            if (isStreaming) { showToast('Wait for the reply to finish before copying.'); return; }
             const replies = chatMessages.querySelectorAll('.message.assistant .msg-content');
             if (!replies.length) { showToast('No reply to copy yet.'); return; }
-            const lastReply = replies[replies.length - 1].textContent.trim();
+            let lastReply = replies[replies.length - 1].textContent.trim();
+            // A reply that never streamed anything (or errored before the
+            // first chunk) can leave the "..." typing placeholder as the
+            // only text in the bubble — that's not a real reply to copy.
+            if (lastReply === '...' || lastReply === '(No response)') lastReply = '';
             if (!lastReply) { showToast('No reply to copy yet.'); return; }
             try {
+                if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                    throw new Error('clipboard API unavailable');
+                }
                 await navigator.clipboard.writeText(lastReply);
                 clipboardCopyBtn.classList.add('active-state');
                 showToast('Copied last reply to clipboard.');
@@ -1790,7 +1964,12 @@ async function loadChatSession(id) {
             chatMessages.appendChild(createWelcome());
             setQuickActionsVisible(false);
         } else {
-            messages.forEach(m => addMessage(m.role === 'assistant' ? 'assistant' : 'user', m.content));
+            messages.forEach(m => {
+                const contentEl = addMessage(m.role === 'assistant' ? 'assistant' : 'user', m.content);
+                if (m.artifacts && m.artifacts.length) {
+                    m.artifacts.forEach(art => renderArtifactCard(art, contentEl));
+                }
+            });
         }
         scrollToBottom();
         if (searchResultsWidget) searchResultsWidget.classList.remove('open');
@@ -2116,6 +2295,7 @@ function addMessage(role, text) {
     content.textContent = text;
     body.appendChild(label);
     body.appendChild(content);
+    if (role === 'assistant') body.appendChild(createMsgCopyBtn());
     msg.appendChild(avatar);
     msg.appendChild(body);
     chatMessages.appendChild(msg);
@@ -2141,6 +2321,7 @@ function addTypingIndicator() {
     content.innerHTML = '<span class="msg-stream-text">...</span>';
     body.appendChild(label);
     body.appendChild(content);
+    body.appendChild(createMsgCopyBtn());
     msg.appendChild(avatar);
     msg.appendChild(body);
     chatMessages.appendChild(msg);
@@ -2280,6 +2461,9 @@ async function sendMessage(textOverride) {
                     }
                     if (data.background_tasks) {
                         handleBackgroundTasks(data.background_tasks, contentEl);
+                    }
+                    if (data.artifact) {
+                        renderArtifactCard(data.artifact, contentEl);
                     }
                     if ('chunk' in data) {
                         const chunkText = data.chunk || '';

@@ -24,6 +24,153 @@ CAMERA_BYPASS_TOKEN = "TTCAMTOKENTT"
 _REMEMBER_TAG_RE = re.compile(r'\[REMEMBER:\s*(.*?)\s*\]', re.DOTALL)
 _REMEMBER_TAG_START = "[REMEMBER:"
 
+_ARTIFACT_OPEN_RE = re.compile(
+    r'\[ARTIFACT:\s*filename="([^"]*)"\s*type="([^"]*)"\s*\]\s*\n?',
+    re.DOTALL,
+)
+_ARTIFACT_OPEN_START = "[ARTIFACT:"
+_ARTIFACT_CLOSE_TAG = "[/ARTIFACT]"
+
+# Common file extensions mapped to a short type label the frontend can show
+# as a badge (e.g. "PY", "JS"). Falls back to the extension itself, or the
+# type the model gave if the filename has no recognizable extension.
+_ARTIFACT_EXT_LABELS = {
+    "py": "PY", "js": "JS", "jsx": "JSX", "ts": "TS", "tsx": "TSX",
+    "html": "HTML", "htm": "HTML", "css": "CSS", "json": "JSON",
+    "md": "MD", "txt": "TXT", "sh": "SH", "yaml": "YAML", "yml": "YAML",
+    "sql": "SQL", "java": "JAVA", "c": "C", "cpp": "C++", "go": "GO",
+    "rb": "RUBY", "php": "PHP", "xml": "XML", "csv": "CSV",
+}
+
+
+def _artifact_label(filename: str, declared_type: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return _ARTIFACT_EXT_LABELS.get(ext) or (declared_type or "TXT").upper()[:6]
+
+
+class ArtifactTagStreamFilter:
+    """
+    Wraps a stream of text chunks, extracting one [ARTIFACT: filename="..."
+    type="..."] ... [/ARTIFACT] block out of the visible reply. Unlike
+    RememberTagStreamFilter (which discards its tag entirely), a completed
+    artifact needs to reach the frontend as structured data — so once the
+    closing tag is seen, the parsed {filename, type, content} dict is
+    appended to self.artifacts and NOTHING inside the block is ever
+    released as chat text. Only one artifact is extracted per response
+    (matches the "one artifact per reply" system prompt rule); a second
+    opening tag is left as plain text rather than silently dropped, so a
+    model mistake is at least visible instead of vanishing.
+    """
+
+    def __init__(self):
+        self._buffer = ""
+        self._in_artifact = False
+        self._artifact_meta = None  # (filename, type) once the opening tag is parsed
+        self._artifact_body = []
+        self.artifacts: List[Dict[str, str]] = []
+
+    def feed(self, chunk: str) -> str:
+        self._buffer += chunk
+        out = []
+
+        while True:
+            if self._in_artifact:
+                close_idx = self._buffer.find(_ARTIFACT_CLOSE_TAG)
+                if close_idx == -1:
+                    # Keep buffering — the closing tag might arrive in a
+                    # future chunk. Nothing here is releasable yet.
+                    break
+                self._artifact_body.append(self._buffer[:close_idx])
+                self._buffer = self._buffer[close_idx + len(_ARTIFACT_CLOSE_TAG):]
+                if self._buffer.startswith("\n"):
+                    self._buffer = self._buffer[1:]
+                filename, dtype = self._artifact_meta
+                content = "".join(self._artifact_body).strip("\n")
+                if content:
+                    self.artifacts.append({
+                        "filename": filename,
+                        "type": dtype,
+                        "label": _artifact_label(filename, dtype),
+                        "content": content,
+                    })
+                self._in_artifact = False
+                self._artifact_meta = None
+                self._artifact_body = []
+                continue
+
+            start_idx = self._buffer.find("[")
+            if start_idx == -1:
+                out.append(self._buffer)
+                self._buffer = ""
+                break
+
+            if start_idx > 0:
+                out.append(self._buffer[:start_idx])
+                self._buffer = self._buffer[start_idx:]
+
+            # Could this be the start of [ARTIFACT: or [REMEMBER: ? Hold
+            # back a short prefix until we know which (or neither).
+            longest_start = max(len(_ARTIFACT_OPEN_START), len(_REMEMBER_TAG_START))
+            prefix_len = min(len(self._buffer), longest_start)
+            candidate = self._buffer[:prefix_len]
+            could_be_artifact = _ARTIFACT_OPEN_START.startswith(candidate) or candidate.startswith(_ARTIFACT_OPEN_START)
+            if not could_be_artifact:
+                out.append(self._buffer[:1])
+                self._buffer = self._buffer[1:]
+                continue
+
+            if len(self._buffer) < len(_ARTIFACT_OPEN_START):
+                break  # not enough buffered yet to tell
+
+            if not self._buffer.startswith(_ARTIFACT_OPEN_START):
+                out.append(self._buffer[:1])
+                self._buffer = self._buffer[1:]
+                continue
+
+            close_idx = self._buffer.find("]")
+            if close_idx == -1:
+                if len(self._buffer) > 500:
+                    # Malformed/never-closing opening tag — stop treating
+                    # this as a tag rather than buffering forever.
+                    out.append(self._buffer[:1])
+                    self._buffer = self._buffer[1:]
+                    continue
+                break
+
+            header = self._buffer[:close_idx + 1]
+            m = _ARTIFACT_OPEN_RE.match(header + "\n")
+            if m:
+                filename = m.group(1).strip() or "artifact.txt"
+                dtype = m.group(2).strip() or "text"
+                self._in_artifact = True
+                self._artifact_meta = (filename, dtype)
+                self._buffer = self._buffer[close_idx + 1:]
+                if self._buffer.startswith("\n"):
+                    self._buffer = self._buffer[1:]
+            else:
+                # Looked like an artifact tag but didn't parse — release
+                # the bracket itself and keep scanning normally.
+                out.append(self._buffer[:1])
+                self._buffer = self._buffer[1:]
+
+        return "".join(out)
+
+    def flush(self) -> str:
+        # If the stream ended mid-artifact (model cut off, error, etc.),
+        # surface whatever was buffered as plain text rather than losing
+        # it silently — an incomplete file the user can see beats one
+        # that just disappears.
+        if self._in_artifact:
+            filename, _ = self._artifact_meta or ("artifact.txt", "text")
+            remaining = "".join(self._artifact_body) + self._buffer
+            self._buffer = ""
+            self._in_artifact = False
+            self._artifact_body = []
+            return remaining
+        remaining = self._buffer
+        self._buffer = ""
+        return remaining
+
 
 class RememberTagStreamFilter:
     """
@@ -191,7 +338,9 @@ class ChatService:
                 role = role if role in ("user", "assistant") else "user"
                 content = msg.get("content")
                 content = content if isinstance(content, str) else str(content or "")
-                messages.append(ChatMessage(role=role, content=content))
+                raw_artifacts = msg.get("artifacts")
+                artifacts = raw_artifacts if isinstance(raw_artifacts, list) and raw_artifacts else None
+                messages.append(ChatMessage(role=role, content=content, artifacts=artifacts))
 
             self.sessions[session_id] = messages
             self.session_meta[session_id] = {
@@ -654,6 +803,7 @@ class ChatService:
             chunk_count = 0
             t0 = time.perf_counter()
             remember_filter = RememberTagStreamFilter()
+            artifact_filter = ArtifactTagStreamFilter()
 
             try:
                 for chunk in stream_svc.stream_response(
@@ -668,8 +818,14 @@ class ChatService:
                         elapsed_ms = int((time.perf_counter() - t0) * 1000)
                         yield {"_activity": { "event": "first_chunk", "route": "mixed", "elapsed_ms": elapsed_ms}}
 
-                    clean_chunk = remember_filter.feed(chunk)
+                    no_artifact_chunk = artifact_filter.feed(chunk)
+                    clean_chunk = remember_filter.feed(no_artifact_chunk) if no_artifact_chunk else ""
                     chunk_count += 1
+
+                    while artifact_filter.artifacts:
+                        art = artifact_filter.artifacts.pop(0)
+                        self._attach_artifact(session_id, art)
+                        yield {"_artifact": art}
 
                     if not clean_chunk:
                         continue
@@ -680,7 +836,12 @@ class ChatService:
                         self.save_chat_session(session_id, log_timing=False)
                     yield clean_chunk
 
-                trailing = remember_filter.flush()
+                trailing_artifact_text = artifact_filter.flush()
+                trailing = remember_filter.feed(trailing_artifact_text) + remember_filter.flush() if trailing_artifact_text else remember_filter.flush()
+                while artifact_filter.artifacts:
+                    art = artifact_filter.artifacts.pop(0)
+                    self._attach_artifact(session_id, art)
+                    yield {"_artifact": art}
                 if trailing:
                     self.sessions[session_id][-1].content += trailing
                     yield trailing
@@ -714,6 +875,7 @@ class ChatService:
             return
 
         remember_filter = RememberTagStreamFilter()
+        artifact_filter = ArtifactTagStreamFilter()
         try:
             for chunk in stream_svc.stream_response(
                 question=user_message, chat_history=chat_history, key_start_index=chat_idx,
@@ -727,8 +889,14 @@ class ChatService:
                     elapsed_ms = int((time.perf_counter() - t0) * 1000)
                     yield {"_activity": {"event": "first_chunk","route": route_name,"elapsed_ms": elapsed_ms}}
 
-                clean_chunk = remember_filter.feed(chunk)
+                no_artifact_chunk = artifact_filter.feed(chunk)
+                clean_chunk = remember_filter.feed(no_artifact_chunk) if no_artifact_chunk else ""
                 chunk_count += 1
+
+                while artifact_filter.artifacts:
+                    art = artifact_filter.artifacts.pop(0)
+                    self._attach_artifact(session_id, art)
+                    yield {"_artifact": art}
 
                 if not clean_chunk:
                     continue
@@ -738,7 +906,12 @@ class ChatService:
                     self.save_chat_session(session_id, log_timing=False)
                 yield clean_chunk
 
-            trailing = remember_filter.flush()
+            trailing_artifact_text = artifact_filter.flush()
+            trailing = remember_filter.feed(trailing_artifact_text) + remember_filter.flush() if trailing_artifact_text else remember_filter.flush()
+            while artifact_filter.artifacts:
+                art = artifact_filter.artifacts.pop(0)
+                self._attach_artifact(session_id, art)
+                yield {"_artifact": art}
             if trailing:
                 self.sessions[session_id][-1].content += trailing
                 yield trailing
@@ -748,6 +921,17 @@ class ChatService:
 
         elapsed_scalable = time.perf_counter() - t0_scalable
         logger.info("[SCALABLE-STREAM] %s flow complete in %.2fs | chunks: %d", route_name, elapsed_scalable, chunk_count)
+
+    def _attach_artifact(self, session_id: str, artifact: Dict[str, str]) -> None:
+        """Records a completed artifact on the current (last) assistant
+        message in this session, so it's still there — and downloadable —
+        the next time this chat is reopened, not just for the live stream."""
+        if session_id not in self.sessions or not self.sessions[session_id]:
+            return
+        msg = self.sessions[session_id][-1]
+        if msg.artifacts is None:
+            msg.artifacts = []
+        msg.artifacts.append(artifact)
 
     def _save_remembered_facts(self, username: Optional[str], facts: List[str]) -> None:
         """Persists any [REMEMBER: ...] facts the model emitted this turn.
@@ -863,7 +1047,10 @@ class ChatService:
         meta = self.session_meta.get(session_id, {})
         chat_dict = {
             "session_id": session_id,
-            "messages": [{"role": msg.role, "content": msg.content} for msg in messages],
+            "messages": [
+                {"role": msg.role, "content": msg.content, "artifacts": msg.artifacts or []}
+                for msg in messages
+            ],
             "project_id": meta.get("project_id"),
             "username": meta.get("username"),
             "title": meta.get("title"),

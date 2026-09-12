@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class ChatMessage(BaseModel):
     role: str
-    content: str 
+    content: str
+    artifacts: Optional[List[Dict[str, str]]] = None
 
 class Personalization(BaseModel):
     nickname: Optional[str] = Field(default=None, max_length=60)

@@ -1233,6 +1233,11 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
                 yield from _yield_completed_audio()
                 continue
 
+            if isinstance(chunk, dict) and "_artifact" in chunk:
+                yield f"data: {json.dumps({'artifact': chunk['_artifact']})}\n\n"
+                yield from _yield_completed_audio()
+                continue
+
             if not chunk:
                 yield from _yield_completed_audio()
                 continue
@@ -1580,7 +1585,10 @@ async def get_chat_history(session_id: str, username: str = Depends(require_auth
         messages = chat_service.get_chat_history(session_id)
         return {
             "session_id": session_id,
-            "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
+            "messages": [
+                {"role": msg.role, "content": msg.content, "artifacts": msg.artifacts or []}
+                for msg in messages
+            ]
         }
 
     except HTTPException:
