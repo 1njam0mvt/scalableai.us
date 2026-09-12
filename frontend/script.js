@@ -1205,8 +1205,7 @@ function bindEvents() {
         });
     }
     if (activityToggle) {
-        activityToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
+        activityToggle.addEventListener('click', () => {
             if (activityPanel) {
                 activityPanel.classList.toggle('open');
                 updatePanelOverlay();
@@ -1749,7 +1748,7 @@ window.renderRecentChats = renderRecentChats;
     }
 })();
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', () => {
     document.querySelectorAll('.sidebar-history-dropdown.open').forEach(d => d.classList.remove('open'));
     document.querySelectorAll('.sidebar-history-item-menu-wrap.force-visible').forEach(w => w.classList.remove('force-visible'));
     const organizeMenuEl = document.getElementById('sidebar-organize-menu');
@@ -1757,19 +1756,6 @@ document.addEventListener('click', (e) => {
     const organizeBtnEl = document.getElementById('sidebar-organize-btn');
     if (organizeBtnEl) organizeBtnEl.setAttribute('aria-expanded', 'false');
     document.querySelectorAll('.sidebar-recent-actions.force-visible').forEach(a => a.classList.remove('force-visible'));
-
-    // Corner dropdowns (activity, settings): close on any click outside
-    // their own wrapper, same convention as the sidebar menus above.
-    const activityWrap = document.querySelector('.activity-menu-wrap');
-    if (activityWrap && !activityWrap.contains(e.target) && activityPanel && activityPanel.classList.contains('open')) {
-        activityPanel.classList.remove('open');
-        updatePanelOverlay();
-    }
-    const settingsWrap = document.querySelector('.settings-menu-wrap');
-    if (settingsWrap && !settingsWrap.contains(e.target) && settingsPanel && settingsPanel.classList.contains('open')) {
-        settingsPanel.classList.remove('open');
-        updatePanelOverlay();
-    }
 });
 
 async function loadChatSession(id) {

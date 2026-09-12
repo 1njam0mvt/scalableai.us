@@ -4159,62 +4159,42 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     border-left-color: var(--line);
 }
 
-/* Activity is a small corner dropdown anchored to its own toggle button —
-   same pattern as .settings-panel — not a docked layout column. It never
-   pushes or shrinks the chat area, on desktop or mobile, and it only
-   appears when someone taps the toggle: nothing here auto-opens it. */
-.activity-menu-wrap {
-    position: relative;
-}
-
+/* Activity is a floating rounded card docked to the left of the chat,
+   not a flush full-height strip — keeps it readable and never crowds text. */
 .activity-panel {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    z-index: 60;
-    width: min(340px, calc(100vw - 24px));
-    max-height: min(60vh, 420px);
-    max-height: min(60dvh, 420px);
+    position: relative;
+    z-index: 5;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    width: 0;
+    min-width: 0;
+    max-height: calc(100% - 24px);
+    margin: 12px 0 12px 12px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     background: var(--bg-1);
     border: 1px solid var(--line-strong);
-    border-radius: var(--r-md);
+    border-radius: var(--r-lg);
     box-shadow: var(--shadow-lg);
-    transform: translateY(-6px) scale(0.98);
-    transform-origin: top right;
     opacity: 0;
-    pointer-events: none;
-    transition: transform var(--fast) var(--ease), opacity var(--fast) var(--ease);
+    transition: width var(--med) var(--ease), opacity var(--fast) var(--ease);
 }
 
 .activity-panel.open {
-    transform: translateY(0) scale(1);
+    width: min(var(--panel-w), calc(100% - 24px));
     opacity: 1;
-    pointer-events: auto;
 }
 
-/* Mobile: a corner-anchored dropdown can run off-screen or crowd the edge
-   on a narrow viewport. Below 700px, center it as a small fixed popover
-   instead — compact, capped well under full height, never competing with
-   the chat for space the way the old docked panel did. */
+/* Mobile: max-height: calc(100% - 24px) depends on several nested flex/
+   grid ancestors resolving their heights correctly, which mobile browser
+   chrome (address bar showing/hiding) can throw off in practice — same
+   root cause as the settings-panel and language-menu cutoff fixed
+   earlier. Give it its own explicit, viewport-anchored cap instead of
+   relying on inherited percentages. */
 @media (max-width: 700px) {
-    .activity-panel {
-        position: fixed;
-        top: auto;
-        bottom: 76px;
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%) translateY(6px) scale(0.98);
-        transform-origin: bottom center;
-        width: min(320px, calc(100vw - 32px));
-        max-height: min(50vh, 360px);
-        max-height: min(50dvh, 360px);
-    }
-
     .activity-panel.open {
-        transform: translateX(-50%) translateY(0) scale(1);
+        max-height: min(calc(100dvh - 140px), calc(100vh - 140px), calc(var(--app-vh, 100dvh) - 140px));
     }
 }
 
