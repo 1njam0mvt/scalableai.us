@@ -1432,7 +1432,7 @@ body.guest-mode .account-menu-wrap {
 }
 
 .project-ws-icon-btn.active {
-    color: var(--accent, #9c6bff);
+    color: var(--violet);
 }
 
 .project-ws-body {
@@ -5686,32 +5686,32 @@ input:focus-visible {
     -webkit-appearance: none;
     min-height: 36px;
     padding: 0 32px 0 14px;
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+    border: 1px solid var(--line-strong);
     border-radius: 999px;
-    background-color: var(--surface-1, rgba(20, 20, 28, 0.85));
+    background-color: var(--bg-2);
     backdrop-filter: blur(12px);
-    color: var(--text-1, #f5f5f7);
+    color: var(--ink-0);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--shadow-sm);
     transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .site-lang-box select:hover {
-    border-color: var(--accent, #9c6bff);
-    background-color: var(--surface-2, rgba(30, 30, 40, 0.9));
+    border-color: var(--accent-line);
+    background-color: var(--bg-3);
 }
 
 .site-lang-box select:focus {
     outline: none;
-    border-color: var(--accent, #9c6bff);
+    border-color: var(--accent-line);
 }
 
 .site-lang-box select option {
-    background: #16161a;
-    color: #f5f5f7;
+    background: var(--bg-2);
+    color: var(--ink-0);
 }
 
 @media (max-width: 640px) {
