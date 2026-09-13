@@ -204,6 +204,19 @@ body.guest-mode .auth-only-control {
     display: none !important;
 }
 
+/* Clipboard-copy and Share only make sense once there's an actual
+   conversation to copy from or share — hidden on the welcome/home
+   screen (desktop and mobile alike), shown once a chat is underway. */
+.clipboard-copy-btn,
+.share-menu-wrap {
+    display: none;
+}
+
+body.chat-mode .clipboard-copy-btn,
+body.chat-mode .share-menu-wrap {
+    display: flex;
+}
+
 /* Settings (gear icon) specifically: hidden for guests only on mobile,
    where header space is tight and account-only preferences aren't as
    relevant before signing up. Desktop guests and all logged-in users
@@ -4293,8 +4306,6 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     border: 1px solid var(--line-strong);
     border-radius: var(--r-md);
     z-index: 60;
-    display: flex;
-    flex-direction: column;
     transform: translateY(-6px) scale(0.98);
     transform-origin: top right;
     opacity: 0;
@@ -4308,6 +4319,30 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     transform: translateY(0) scale(1);
     opacity: 1;
     pointer-events: auto;
+}
+
+/* Two "pages" (main share view / settings sub-view) sit side by side in
+   this track and slide horizontally together — same idea as Claude's own
+   share-settings back arrow. .share-panel.show-settings shifts the whole
+   track left by 100% to reveal the settings page. */
+.share-page-track {
+    display: flex;
+    flex-direction: row;
+    width: 200%;
+    transition: transform var(--med) var(--ease);
+}
+
+.share-panel.show-settings .share-page-track {
+    transform: translateX(-50%);
+}
+
+.share-page {
+    flex: 0 0 50%;
+    width: 50%;
+    max-height: min(75vh, 560px);
+    max-height: min(75dvh, 560px);
+    display: flex;
+    flex-direction: column;
 }
 
 @media (max-width: 700px) {
@@ -4333,6 +4368,15 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     gap: 12px;
     padding: 16px 16px 12px;
     border-bottom: 1px solid var(--line);
+}
+
+.share-page-settings .share-header {
+    align-items: center;
+}
+
+.share-page-settings .share-header .share-title {
+    flex: 1;
+    text-align: center;
 }
 
 .share-title {
@@ -4484,6 +4528,105 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 .share-access-chevron {
     flex: 0 0 auto;
     color: var(--ink-2);
+}
+
+/* The "Only people invited" row doubles as a real <button> now (it opens
+   the access dropdown), so it needs the usual button-reset treatment on
+   top of the shared .share-access-row look. */
+.share-access-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.share-access-dropdown-wrap {
+    position: relative;
+}
+
+.share-access-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--bg-1);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top;
+    pointer-events: none;
+    transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.share-access-dropdown.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.share-access-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-sm);
+    color: var(--ink-0);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.share-access-option:hover {
+    background: var(--bg-3);
+}
+
+.share-access-option span {
+    flex: 1;
+}
+
+.share-access-option-check {
+    flex: 0 0 auto;
+    opacity: 0;
+    color: var(--violet);
+}
+
+.share-access-option.selected .share-access-option-check {
+    opacity: 1;
+}
+
+/* ---- share settings sub-page ---- */
+.share-back-btn {
+    flex: 0 0 auto;
+}
+
+.share-page-settings .share-body {
+    padding-top: 16px;
+}
+
+.share-settings-cancel-btn {
+    height: 38px;
+    padding: 0 16px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink-0);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.share-settings-cancel-btn:hover {
+    background: var(--bg-3);
 }
 
 .share-remove-btn {
@@ -4642,6 +4785,26 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 }
 
 /* ---- settings ---- */
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.settings-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-0);
+}
+
+.settings-close {
+    flex: 0 0 auto;
+}
+
 .settings-body {
     flex: 1;
     min-height: 0;

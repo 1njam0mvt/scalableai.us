@@ -350,6 +350,7 @@ class ChatService:
                 "share_id": chat_dict.get("share_id"),
                 "share_enabled": chat_dict.get("share_enabled", False),
                 "shared_with": chat_dict.get("shared_with") or [],
+                "share_access_mode": chat_dict.get("share_access_mode", "invite_only"),
             }
             return True
 
@@ -477,7 +478,16 @@ class ChatService:
             "share_enabled": bool(meta.get("share_enabled")),
             "share_id": meta.get("share_id"),
             "shared_with": list(meta.get("shared_with") or []),
+            "share_access_mode": meta.get("share_access_mode", "invite_only"),
         }
+
+    def set_share_access_mode(self, session_id: str, mode: str) -> str:
+        if mode not in ("invite_only", "anyone_with_link"):
+            mode = "invite_only"
+        meta = self.session_meta.setdefault(session_id, {})
+        meta["share_access_mode"] = mode
+        self.save_chat_session(session_id)
+        return mode
 
     def add_share_invite(self, session_id: str, email: str) -> List[str]:
         meta = self.session_meta.setdefault(session_id, {})
@@ -1131,6 +1141,7 @@ class ChatService:
             "share_id": meta.get("share_id"),
             "share_enabled": meta.get("share_enabled", False),
             "shared_with": meta.get("shared_with", []),
+            "share_access_mode": meta.get("share_access_mode", "invite_only"),
         }
 
         max_retries = 3

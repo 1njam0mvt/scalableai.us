@@ -561,6 +561,18 @@ def require_auth_or_guest(authorization: Optional[str] = Header(default=None)) -
 
     raise HTTPException(status_code=401, detail="Not authenticated")
 
+
+def optional_auth(authorization: Optional[str] = Header(default=None)) -> Optional[str]:
+    """Like require_auth, but returns None instead of raising when there's
+    no token or it doesn't resolve to a real account. Used only by the
+    public shared-chat endpoint, where a visitor may or may not be logged
+    in and either is a valid, expected state — the endpoint itself decides
+    whether that matters based on the chat's access mode."""
+    token = get_bearer_token(authorization)
+    if not token or not auth_service:
+        return None
+    return auth_service.get_username_for_token(token)
+
 @app.get("/discover/{topic}")
 
 async def discover_topic(topic: str, username: str = Depends(require_auth)):
@@ -1641,6 +1653,19 @@ async def get_chat_share_state(session_id: str, username: str = Depends(require_
     return chat_service.get_share_state(session_id)
 
 
+class ShareAccessModeRequest(BaseModel):
+    mode: str = Field(..., pattern="^(invite_only|anyone_with_link)$")
+
+
+@app.patch("/chat/{session_id}/share")
+async def set_chat_share_access_mode(session_id: str, request: ShareAccessModeRequest, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    mode = chat_service.set_share_access_mode(session_id, request.mode)
+    return {"share_access_mode": mode}
+
+
 class ShareInviteRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
 
@@ -1688,23 +1713,37 @@ async def remove_chat_share_invite(session_id: str, request: ShareInviteRequest,
 
 
 @app.get("/api/shared/{share_id}")
-async def get_shared_chat_data(share_id: str):
-    """Public read-only data for a shared chat. Deliberately has NO
-    require_auth dependency — recipients open a share link without ever
-    needing an account, matching what "share a link" implies. Access is
-    controlled entirely by whether share_id resolves to a chat with
-    sharing currently turned on, not by who's logged in.
-    Served at /api/shared/... (JSON) separately from /shared/... (the
-    HTML page that fetches this) so a browser opening the link directly
-    gets a real page instead of a raw JSON dump."""
+async def get_shared_chat_data(share_id: str, viewer_username: Optional[str] = Depends(optional_auth)):
+    """Public read-only data for a shared chat. No login is required when
+    the chat's access mode is "anyone with the link" — but when the owner
+    has set it to "only people invited," a visitor must be logged in with
+    an invited (or the owner's own) account, or this returns 403 rather
+    than the chat contents. Served at /api/shared/... (JSON) separately
+    from /shared/... (the HTML page that fetches this) so a browser
+    opening the link directly gets a real page instead of a raw JSON dump."""
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
     session_id = chat_service.find_session_by_share_id(share_id)
     if not session_id:
         raise HTTPException(status_code=404, detail="This shared link is invalid or sharing has been turned off.")
-    messages = chat_service.get_chat_history(session_id)
+
+    state = chat_service.get_share_state(session_id)
     meta = chat_service.session_meta.get(session_id, {})
     owner_username = meta.get("username")
+
+    if state.get("share_access_mode") == "invite_only":
+        is_owner = bool(viewer_username) and viewer_username == owner_username
+        viewer_email = None
+        if viewer_username and auth_service:
+            profile = auth_service.get_profile(viewer_username)
+            viewer_email = (profile or {}).get("email", "").strip().lower()
+        is_invited = bool(viewer_email) and viewer_email in (state.get("shared_with") or [])
+        if not is_owner and not is_invited:
+            if not viewer_username:
+                raise HTTPException(status_code=401, detail="This chat is only shared with people who were invited. Log in with the email it was shared to, then open this link again.")
+            raise HTTPException(status_code=403, detail="This chat is only shared with people who were invited, and your account isn't on that list.")
+
+    messages = chat_service.get_chat_history(session_id)
     owner_display = owner_username
     if owner_username and auth_service:
         profile = auth_service.get_profile(owner_username)

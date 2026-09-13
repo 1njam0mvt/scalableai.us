@@ -203,6 +203,16 @@ const shareSettingsBtn = $('share-settings-btn');
 const shareOwnerAvatar = $('share-owner-avatar');
 const shareOwnerName = $('share-owner-name');
 const shareOwnerEmail = $('share-owner-email');
+const shareAccessToggle = $('share-access-toggle');
+const shareAccessDropdown = $('share-access-dropdown');
+const shareAccessModeLabel = $('share-access-mode-label');
+const shareSettingsBack = $('share-settings-back');
+const shareSettingsClose = $('share-settings-close');
+const shareSettingsCancel = $('share-settings-cancel');
+const shareSettingsSave = $('share-settings-save');
+const shareSettingsAccessToggle = $('share-settings-access-toggle');
+const shareSettingsAccessDropdown = $('share-settings-access-dropdown');
+const shareSettingsAccessModeLabel = $('share-settings-access-mode-label');
 const panelOverlay = $('panel-overlay');
 const speechWidget = $('speech-widget');
 const speechWidgetText = $('speech-widget-text');
@@ -887,11 +897,66 @@ function renderShareInvitedList(sharedWith) {
     });
 }
 
+let currentShareAccessMode = 'invite_only';
+let pendingShareAccessMode = 'invite_only';
+
+const SHARE_ACCESS_MODE_LABELS = {
+    invite_only: 'Only people invited',
+    anyone_with_link: 'Anyone with the link',
+};
+
+function shareAccessIconSvg(mode) {
+    if (mode === 'anyone_with_link') {
+        return '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>';
+    }
+    return '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+}
+
+function renderShareAccessMode(mode) {
+    const label = SHARE_ACCESS_MODE_LABELS[mode] || SHARE_ACCESS_MODE_LABELS.invite_only;
+    const iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + shareAccessIconSvg(mode) + '</svg>';
+    if (shareAccessModeLabel) shareAccessModeLabel.textContent = label;
+    if (shareSettingsAccessModeLabel) shareSettingsAccessModeLabel.textContent = label;
+    const mainIcon = document.getElementById('share-access-mode-icon');
+    const settingsIcon = document.getElementById('share-settings-access-mode-icon');
+    if (mainIcon) mainIcon.innerHTML = iconSvg;
+    if (settingsIcon) settingsIcon.innerHTML = iconSvg;
+    [shareAccessDropdown, shareSettingsAccessDropdown].forEach(dropdown => {
+        if (!dropdown) return;
+        dropdown.querySelectorAll('.share-access-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.getAttribute('data-mode') === mode);
+        });
+    });
+}
+
+function closeShareAccessDropdowns() {
+    [shareAccessDropdown, shareSettingsAccessDropdown].forEach(d => d && d.classList.remove('open'));
+    [shareAccessToggle, shareSettingsAccessToggle].forEach(t => t && t.setAttribute('aria-expanded', 'false'));
+}
+
+function wireShareAccessDropdown(toggleBtn, dropdownEl, onPick) {
+    if (!toggleBtn || !dropdownEl) return;
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = !dropdownEl.classList.contains('open');
+        closeShareAccessDropdowns();
+        dropdownEl.classList.toggle('open', willOpen);
+        toggleBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+    dropdownEl.querySelectorAll('.share-access-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onPick(opt.getAttribute('data-mode'));
+            closeShareAccessDropdowns();
+        });
+    });
+}
+
 async function loadShareState() {
     renderShareOwnerRow();
     if (!sessionId) {
         showToast('Send a message first, then you can share this chat.');
-        if (sharePanel) sharePanel.classList.remove('open');
+        if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
         updatePanelOverlay();
         return;
     }
@@ -904,6 +969,9 @@ async function loadShareState() {
         }
         const data = await res.json();
         renderShareInvitedList(data.shared_with);
+        currentShareAccessMode = data.share_access_mode || 'invite_only';
+        pendingShareAccessMode = currentShareAccessMode;
+        renderShareAccessMode(currentShareAccessMode);
     } catch (err) {
         showToast('Could not load sharing info — check your connection.');
     }
@@ -949,6 +1017,32 @@ async function removeShareInvite(email) {
         renderShareInvitedList(data.shared_with);
     } catch (err) {
         showToast('Could not remove that person — check your connection.');
+    }
+}
+
+async function saveShareAccessMode(mode) {
+    if (!sessionId) return;
+    try {
+        const res = await authFetch(`${API}/chat/${encodeURIComponent(sessionId)}/share`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(data.detail || 'Could not update who has access.');
+            renderShareAccessMode(currentShareAccessMode);
+            return;
+        }
+        currentShareAccessMode = data.share_access_mode || mode;
+        pendingShareAccessMode = currentShareAccessMode;
+        renderShareAccessMode(currentShareAccessMode);
+        showToast(currentShareAccessMode === 'anyone_with_link'
+            ? 'Anyone with the link can now view this chat.'
+            : 'Only people you invite can view this chat.');
+    } catch (err) {
+        showToast('Could not update who has access — check your connection.');
+        renderShareAccessMode(currentShareAccessMode);
     }
 }
 
@@ -1509,10 +1603,22 @@ function bindEvents() {
     }
     if (shareClose && sharePanel) {
         shareClose.addEventListener('click', () => {
-            sharePanel.classList.remove('open');
+            sharePanel.classList.remove('open', 'show-settings');
             updatePanelOverlay();
         });
     }
+    // Right-click anywhere closes the share panel, in addition to the X
+    // button — e.preventDefault() suppresses the browser's own context
+    // menu only while the panel is open, so right-clicking elsewhere in
+    // the app keeps working normally once it's closed.
+    document.addEventListener('contextmenu', (e) => {
+        if (sharePanel && sharePanel.classList.contains('open')) {
+            e.preventDefault();
+            sharePanel.classList.remove('open', 'show-settings');
+            updatePanelOverlay();
+        }
+        closeShareAccessDropdowns();
+    });
     if (shareInviteBtn && shareEmailInput) {
         shareInviteBtn.addEventListener('click', submitShareInvite);
         shareEmailInput.addEventListener('keydown', (e) => {
@@ -1521,6 +1627,40 @@ function bindEvents() {
     }
     if (shareCopyLinkBtn) {
         shareCopyLinkBtn.addEventListener('click', copyShareLink);
+    }
+    wireShareAccessDropdown(shareAccessToggle, shareAccessDropdown, (mode) => {
+        pendingShareAccessMode = mode;
+        saveShareAccessMode(mode);
+    });
+    wireShareAccessDropdown(shareSettingsAccessToggle, shareSettingsAccessDropdown, (mode) => {
+        pendingShareAccessMode = mode;
+        renderShareAccessMode(mode);
+    });
+    if (shareSettingsBtn && sharePanel) {
+        shareSettingsBtn.addEventListener('click', () => {
+            pendingShareAccessMode = currentShareAccessMode;
+            renderShareAccessMode(currentShareAccessMode);
+            sharePanel.classList.add('show-settings');
+        });
+    }
+    const closeShareSettingsPage = () => {
+        pendingShareAccessMode = currentShareAccessMode;
+        renderShareAccessMode(currentShareAccessMode);
+        if (sharePanel) sharePanel.classList.remove('show-settings');
+    };
+    if (shareSettingsBack) shareSettingsBack.addEventListener('click', closeShareSettingsPage);
+    if (shareSettingsCancel) shareSettingsCancel.addEventListener('click', closeShareSettingsPage);
+    if (shareSettingsClose && sharePanel) {
+        shareSettingsClose.addEventListener('click', () => {
+            sharePanel.classList.remove('open', 'show-settings');
+            updatePanelOverlay();
+        });
+    }
+    if (shareSettingsSave) {
+        shareSettingsSave.addEventListener('click', async () => {
+            await saveShareAccessMode(pendingShareAccessMode);
+            if (sharePanel) sharePanel.classList.remove('show-settings');
+        });
     }
     if (settingsBtn && settingsPanel) {
         settingsBtn.addEventListener('click', () => {
@@ -2092,6 +2232,7 @@ async function loadChatSession(id) {
         if (!messages.length) {
             chatMessages.appendChild(createWelcome());
             setQuickActionsVisible(false);
+            document.body.classList.remove('chat-mode');
         } else {
             messages.forEach(m => {
                 const contentEl = addMessage(m.role === 'assistant' ? 'assistant' : 'user', m.content);
@@ -2102,7 +2243,7 @@ async function loadChatSession(id) {
         }
         scrollToBottom();
         if (searchResultsWidget) searchResultsWidget.classList.remove('open');
-        if (sharePanel) sharePanel.classList.remove('open');
+        if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
         renderRecentChats();
     } catch (e) {
         showToast('Could not load that conversation.');
@@ -2119,12 +2260,13 @@ function newChat() {
     if (chatMessages) chatMessages.innerHTML = '';
     chatMessages.appendChild(createWelcome());
     setQuickActionsVisible(false);
+    document.body.classList.remove('chat-mode');
     messageInput.value = '';
     autoResizeInput();
     setGreeting();
     if (searchResultsWidget) searchResultsWidget.classList.remove('open');
     if (searchResultsToggle) searchResultsToggle.style.display = 'none';
-    if (sharePanel) sharePanel.classList.remove('open');
+    if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
     if (settingsPanel) settingsPanel.classList.remove('open');
     updatePanelOverlay();
     renderRecentChats();
@@ -2244,6 +2386,7 @@ function hideWelcome() {
     const w = document.getElementById('welcome-screen');
     if (w) w.remove();
     setQuickActionsVisible(true);
+    document.body.classList.add('chat-mode');
 }
 
 function setQuickActionsVisible(visible) {
