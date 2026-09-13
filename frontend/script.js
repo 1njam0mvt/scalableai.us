@@ -929,6 +929,69 @@ function renderShareAccessMode(mode) {
     });
 }
 
+// The two share "pages" (main / settings) sit side by side with
+// align-items: flex-start so each sizes to its own content instead of
+// both stretching to match the taller one (that mismatch was the large
+// empty gap under the settings page's short content). Since the panel's
+// own height then needs to track whichever page is actually visible,
+// this measures the target page and applies it directly rather than
+// relying on max-height alone, which only caps growth, not empty space.
+function syncSharePanelHeight(showSettings) {
+    if (!sharePanel) return;
+    const pageMain = document.getElementById('share-page-main');
+    const pageSettings = document.getElementById('share-page-settings');
+    const activePage = showSettings ? pageSettings : pageMain;
+    if (!activePage) return;
+    // Measure on the next frame so the class change (which can affect
+    // layout, e.g. .show-settings sliding the track) has already applied.
+    requestAnimationFrame(() => {
+        const h = activePage.getBoundingClientRect().height;
+        if (h > 0) sharePanel.style.height = h + 'px';
+    });
+}
+
+// .header uses backdrop-filter for its glass effect, and per the CSS
+// spec, a `filter`/`backdrop-filter` ancestor becomes the containing
+// block for any `position: fixed` descendant — so on mobile, where
+// .share-panel/.settings-panel rely on `position: fixed; top/left: 50%`
+// to center in the viewport, they were actually centering inside
+// .header's own small box instead, which is why they rendered squashed
+// into the header and overflowing the screen edge. Moving the panel to
+// be a direct child of <body> while it's open sidesteps that entirely;
+// moving it back to its original spot on close preserves desktop's
+// anchor-to-button positioning (which uses `position: absolute`
+// relative to .share-menu-wrap/.settings-menu-wrap and never had this
+// problem — this only runs below the mobile breakpoint).
+const MOBILE_PANEL_BREAKPOINT = 700;
+
+function relocatePanelForViewport(panelEl, anchorId) {
+    if (!panelEl) return;
+    const isMobile = window.innerWidth <= MOBILE_PANEL_BREAKPOINT;
+    const anchor = document.getElementById(anchorId);
+    if (isMobile) {
+        if (panelEl.parentElement !== document.body) {
+            if (!panelEl.dataset.homeAnchor) panelEl.dataset.homeAnchor = anchorId;
+            document.body.appendChild(panelEl);
+        }
+    } else if (anchor && panelEl.parentElement !== anchor) {
+        anchor.appendChild(panelEl);
+    }
+}
+
+function restorePanelHome(panelEl) {
+    if (!panelEl || !panelEl.dataset.homeAnchor) return;
+    const anchor = document.getElementById(panelEl.dataset.homeAnchor);
+    if (anchor && panelEl.parentElement === document.body) {
+        anchor.appendChild(panelEl);
+    }
+}
+
+function setSharePage(showSettings) {
+    if (!sharePanel) return;
+    sharePanel.classList.toggle('show-settings', !!showSettings);
+    syncSharePanelHeight(!!showSettings);
+}
+
 function closeShareAccessDropdowns() {
     [shareAccessDropdown, shareSettingsAccessDropdown].forEach(d => d && d.classList.remove('open'));
     [shareAccessToggle, shareSettingsAccessToggle].forEach(t => t && t.setAttribute('aria-expanded', 'false'));
@@ -956,7 +1019,7 @@ async function loadShareState() {
     renderShareOwnerRow();
     if (!sessionId) {
         showToast('Send a message first, then you can share this chat.');
-        if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
+        if (sharePanel) { sharePanel.classList.remove('open', 'show-settings'); sharePanel.style.height = ''; restorePanelHome(sharePanel); }
         updatePanelOverlay();
         return;
     }
@@ -972,6 +1035,7 @@ async function loadShareState() {
         currentShareAccessMode = data.share_access_mode || 'invite_only';
         pendingShareAccessMode = currentShareAccessMode;
         renderShareAccessMode(currentShareAccessMode);
+        syncSharePanelHeight(false);
     } catch (err) {
         showToast('Could not load sharing info — check your connection.');
     }
@@ -1517,6 +1581,20 @@ function showToast(msg, durationMs = 5000) {
 }
 
 function bindEvents() {
+    // Keep an open share/settings panel in the correct DOM location if the
+    // viewport crosses the mobile breakpoint while it's open (e.g. rotating
+    // a phone, or resizing a desktop window) — otherwise it could end up
+    // fixed-positioned inside the (filtered) header on a now-mobile-width
+    // screen, or stuck absolute-positioned to a button that's no longer
+    // its anchor point on a now-desktop-width screen.
+    window.addEventListener('resize', () => {
+        if (sharePanel && sharePanel.classList.contains('open')) {
+            relocatePanelForViewport(sharePanel, 'share-menu-wrap');
+        }
+        if (settingsPanel && settingsPanel.classList.contains('open')) {
+            relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
+        }
+    });
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isStreaming) sendMessage(); });
     if (messageInput) messageInput.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!isStreaming) sendMessage(); }
@@ -1596,14 +1674,18 @@ function bindEvents() {
     if (shareToggle && sharePanel) {
         shareToggle.addEventListener('click', () => {
             const willOpen = !sharePanel.classList.contains('open');
+            if (willOpen) relocatePanelForViewport(sharePanel, 'share-menu-wrap');
             sharePanel.classList.toggle('open', willOpen);
             updatePanelOverlay();
             if (willOpen) loadShareState();
+            else restorePanelHome(sharePanel);
         });
     }
     if (shareClose && sharePanel) {
         shareClose.addEventListener('click', () => {
             sharePanel.classList.remove('open', 'show-settings');
+            sharePanel.style.height = '';
+            restorePanelHome(sharePanel);
             updatePanelOverlay();
         });
     }
@@ -1615,6 +1697,8 @@ function bindEvents() {
         if (sharePanel && sharePanel.classList.contains('open')) {
             e.preventDefault();
             sharePanel.classList.remove('open', 'show-settings');
+            sharePanel.style.height = '';
+            restorePanelHome(sharePanel);
             updatePanelOverlay();
         }
         closeShareAccessDropdowns();
@@ -1640,37 +1724,43 @@ function bindEvents() {
         shareSettingsBtn.addEventListener('click', () => {
             pendingShareAccessMode = currentShareAccessMode;
             renderShareAccessMode(currentShareAccessMode);
-            sharePanel.classList.add('show-settings');
+            setSharePage(true);
         });
     }
     const closeShareSettingsPage = () => {
         pendingShareAccessMode = currentShareAccessMode;
         renderShareAccessMode(currentShareAccessMode);
-        if (sharePanel) sharePanel.classList.remove('show-settings');
+        setSharePage(false);
     };
     if (shareSettingsBack) shareSettingsBack.addEventListener('click', closeShareSettingsPage);
     if (shareSettingsCancel) shareSettingsCancel.addEventListener('click', closeShareSettingsPage);
     if (shareSettingsClose && sharePanel) {
         shareSettingsClose.addEventListener('click', () => {
             sharePanel.classList.remove('open', 'show-settings');
+            sharePanel.style.height = '';
+            restorePanelHome(sharePanel);
             updatePanelOverlay();
         });
     }
     if (shareSettingsSave) {
         shareSettingsSave.addEventListener('click', async () => {
             await saveShareAccessMode(pendingShareAccessMode);
-            if (sharePanel) sharePanel.classList.remove('show-settings');
+            setSharePage(false);
         });
     }
     if (settingsBtn && settingsPanel) {
         settingsBtn.addEventListener('click', () => {
-            settingsPanel.classList.toggle('open');
+            const willOpen = !settingsPanel.classList.contains('open');
+            if (willOpen) relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
+            settingsPanel.classList.toggle('open', willOpen);
             updatePanelOverlay();
+            if (!willOpen) restorePanelHome(settingsPanel);
         });
     }
     if (settingsClose && settingsPanel) {
         settingsClose.addEventListener('click', () => {
             settingsPanel.classList.remove('open');
+            restorePanelHome(settingsPanel);
             updatePanelOverlay();
         });
     }
@@ -2243,7 +2333,7 @@ async function loadChatSession(id) {
         }
         scrollToBottom();
         if (searchResultsWidget) searchResultsWidget.classList.remove('open');
-        if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
+        if (sharePanel) { sharePanel.classList.remove('open', 'show-settings'); sharePanel.style.height = ''; restorePanelHome(sharePanel); }
         renderRecentChats();
     } catch (e) {
         showToast('Could not load that conversation.');
@@ -2266,8 +2356,8 @@ function newChat() {
     setGreeting();
     if (searchResultsWidget) searchResultsWidget.classList.remove('open');
     if (searchResultsToggle) searchResultsToggle.style.display = 'none';
-    if (sharePanel) sharePanel.classList.remove('open', 'show-settings');
-    if (settingsPanel) settingsPanel.classList.remove('open');
+    if (sharePanel) { sharePanel.classList.remove('open', 'show-settings'); sharePanel.style.height = ''; restorePanelHome(sharePanel); }
+    if (settingsPanel) { settingsPanel.classList.remove('open'); restorePanelHome(settingsPanel); }
     updatePanelOverlay();
     renderRecentChats();
 }

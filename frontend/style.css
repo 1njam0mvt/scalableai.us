@@ -206,15 +206,15 @@ body.guest-mode .auth-only-control {
 
 /* Clipboard-copy and Share only make sense once there's an actual
    conversation to copy from or share — hidden on the welcome/home
-   screen (desktop and mobile alike), shown once a chat is underway. */
-.clipboard-copy-btn,
-.share-menu-wrap {
-    display: none;
-}
-
-body.chat-mode .clipboard-copy-btn,
-body.chat-mode .share-menu-wrap {
-    display: flex;
+   screen (desktop and mobile alike), shown once a chat is underway.
+   Scoped under body:not(.chat-mode) rather than a bare class selector so
+   this reliably beats .btn-icon's own `display: flex` regardless of
+   which rule happens to be declared later in the file — two selectors
+   with one class each is a tie the cascade breaks by source order, and
+   .btn-icon appears after this block. */
+body:not(.chat-mode) .clipboard-copy-btn,
+body:not(.chat-mode) .share-menu-wrap {
+    display: none !important;
 }
 
 /* Settings (gear icon) specifically: hidden for guests only on mobile,
@@ -4328,6 +4328,7 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 .share-page-track {
     display: flex;
     flex-direction: row;
+    align-items: flex-start;
     width: 200%;
     transition: transform var(--med) var(--ease);
 }
