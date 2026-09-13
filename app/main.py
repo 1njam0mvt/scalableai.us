@@ -47,6 +47,7 @@ from app.services.vision_service import VisionService
 from app.services.task_manager import TaskManager
 from app.services.finance_service import FinanceService
 from app.services.auth_service import AuthService, AuthError
+from app.services.email_service import send_share_invite_email
 from app.services.oauth_service import OAuthService, ProviderConfig
 from app.services.project_service import ProjectService, ProjectError
 from app.services.file_parser import extract_text as extract_file_text
@@ -1597,6 +1598,140 @@ async def get_chat_history(session_id: str, username: str = Depends(require_auth
     except Exception as e:
         logger.error(f"Error retrieving history: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving history: {str(e)}")
+
+
+def _require_owned_session(session_id: str, username: str) -> None:
+    """Shared guard for the share-management endpoints below: only the
+    chat's owner can turn sharing on/off or manage who's invited — a
+    logged-in second party is not automatically allowed to reconfigure
+    someone else's chat just because they know its session_id."""
+    if not chat_service.validate_session_id(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
+    if not chat_service.session_exists(session_id):
+        raise HTTPException(status_code=404, detail="This conversation could not be found.")
+    owner = chat_service.get_session_owner(session_id)
+    if owner is not None and owner != username:
+        raise HTTPException(status_code=403, detail="Only the person who started this chat can manage sharing for it.")
+
+
+@app.post("/chat/{session_id}/share")
+async def enable_chat_share(session_id: str, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    share_id = chat_service.get_or_create_share_id(session_id)
+    state = chat_service.get_share_state(session_id)
+    return {"share_id": share_id, "share_enabled": state["share_enabled"], "shared_with": state["shared_with"]}
+
+
+@app.delete("/chat/{session_id}/share")
+async def disable_chat_share(session_id: str, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    chat_service.disable_share(session_id)
+    return {"share_enabled": False}
+
+
+@app.get("/chat/{session_id}/share")
+async def get_chat_share_state(session_id: str, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    return chat_service.get_share_state(session_id)
+
+
+class ShareInviteRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+
+
+@app.post("/chat/{session_id}/share/invite")
+async def invite_to_chat_share(session_id: str, request: ShareInviteRequest, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    email = request.email.strip()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="That doesn't look like a valid email address.")
+    shared_with = chat_service.add_share_invite(session_id, email)
+    # Sharing needs to actually be on for an invite to mean anything; enabling
+    # it here too means clicking "Invite" alone is enough, without the user
+    # having to separately flip a switch first.
+    share_id = chat_service.get_share_state(session_id).get("share_id")
+    if not chat_service.get_share_state(session_id)["share_enabled"] or not share_id:
+        share_id = chat_service.get_or_create_share_id(session_id)
+
+    meta = chat_service.session_meta.get(session_id, {})
+    inviter_display = username
+    if auth_service:
+        profile = auth_service.get_profile(username)
+        if profile:
+            inviter_display = profile.get("display_name") or username
+    public_base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+    share_link = f"{public_base_url}/shared/{share_id}"
+    email_sent = await send_share_invite_email(
+        to_email=email,
+        share_link=share_link,
+        inviter_name=inviter_display,
+        chat_title=meta.get("title"),
+    )
+    return {"shared_with": shared_with, "email_sent": email_sent}
+
+
+@app.delete("/chat/{session_id}/share/invite")
+async def remove_chat_share_invite(session_id: str, request: ShareInviteRequest, username: str = Depends(require_auth)):
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _require_owned_session(session_id, username)
+    shared_with = chat_service.remove_share_invite(session_id, request.email.strip())
+    return {"shared_with": shared_with}
+
+
+@app.get("/api/shared/{share_id}")
+async def get_shared_chat_data(share_id: str):
+    """Public read-only data for a shared chat. Deliberately has NO
+    require_auth dependency — recipients open a share link without ever
+    needing an account, matching what "share a link" implies. Access is
+    controlled entirely by whether share_id resolves to a chat with
+    sharing currently turned on, not by who's logged in.
+    Served at /api/shared/... (JSON) separately from /shared/... (the
+    HTML page that fetches this) so a browser opening the link directly
+    gets a real page instead of a raw JSON dump."""
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    session_id = chat_service.find_session_by_share_id(share_id)
+    if not session_id:
+        raise HTTPException(status_code=404, detail="This shared link is invalid or sharing has been turned off.")
+    messages = chat_service.get_chat_history(session_id)
+    meta = chat_service.session_meta.get(session_id, {})
+    owner_username = meta.get("username")
+    owner_display = owner_username
+    if owner_username and auth_service:
+        profile = auth_service.get_profile(owner_username)
+        if profile:
+            owner_display = profile.get("display_name") or owner_username
+    return {
+        "title": meta.get("title") or "Shared chat",
+        "owner": owner_display,
+        "messages": [
+            {"role": msg.role, "content": msg.content, "artifacts": msg.artifacts or []}
+            for msg in messages
+        ],
+    }
+
+
+@app.get("/shared/{share_id}")
+async def view_shared_chat_page(share_id: str):
+    """Serves the standalone public HTML page (frontend/shared.html), which
+    then calls /api/shared/{share_id} client-side to fetch the actual
+    conversation. Kept as its own file rather than folded into the main
+    SPA's index.html so a visitor with no account gets a small, fast,
+    read-only page instead of the full logged-in app shell."""
+    shared_page_path = _frontend_dir / "shared.html"
+    if not shared_page_path.exists():
+        raise HTTPException(status_code=503, detail="Shared chat view is not available.")
+    return HTMLResponse(shared_page_path.read_text(encoding="utf-8"))
+
 
 @app.post("/tts")
 

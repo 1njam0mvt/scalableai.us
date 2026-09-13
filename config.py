@@ -65,6 +65,11 @@ GROQ_API_KEYS = _load_groq_api_keys()
 GROQ_API_KEY = GROQ_API_KEYS[0] if GROQ_API_KEYS else ""
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+# Used to email people invited to a shared chat (see /chat/{id}/share/invite).
+# If RESEND_API_KEY is empty, invites still work as access control — the
+# email step is just skipped and the link has to be shared manually.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "ScalableAI <onboarding@resend.dev>")
 FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 GROQ_BRAIN_MODEL = os.getenv("GROQ_BRAIN_MODEL", "openai/gpt-oss-20b")

@@ -347,6 +347,9 @@ class ChatService:
                 "project_id": chat_dict.get("project_id"),
                 "username": chat_dict.get("username"),
                 "title": chat_dict.get("title"),
+                "share_id": chat_dict.get("share_id"),
+                "share_enabled": chat_dict.get("share_enabled", False),
+                "shared_with": chat_dict.get("shared_with") or [],
             }
             return True
 
@@ -446,6 +449,77 @@ class ChatService:
         if session_id not in self.session_meta and self.validate_session_id(session_id):
             self.load_session_from_disk(session_id)
         return self.session_meta.get(session_id, {}).get("username")
+
+    def get_or_create_share_id(self, session_id: str) -> str:
+        """Turns sharing on for this chat (idempotent) and returns its
+        public share token. The token is a fresh random id, never the
+        session_id itself, so a shared link can't be used to guess or
+        enumerate a user's private session identifiers."""
+        meta = self.session_meta.setdefault(session_id, {})
+        if not meta.get("share_id"):
+            meta["share_id"] = uuid.uuid4().hex
+        meta["share_enabled"] = True
+        self.save_chat_session(session_id)
+        return meta["share_id"]
+
+    def disable_share(self, session_id: str) -> None:
+        """Turns sharing off. The share_id is kept (not deleted) so that if
+        the owner re-enables sharing later, any link they already handed
+        out starts working again instead of silently becoming a dead link
+        the owner has to re-send."""
+        meta = self.session_meta.setdefault(session_id, {})
+        meta["share_enabled"] = False
+        self.save_chat_session(session_id)
+
+    def get_share_state(self, session_id: str) -> Dict[str, Any]:
+        meta = self.session_meta.get(session_id, {})
+        return {
+            "share_enabled": bool(meta.get("share_enabled")),
+            "share_id": meta.get("share_id"),
+            "shared_with": list(meta.get("shared_with") or []),
+        }
+
+    def add_share_invite(self, session_id: str, email: str) -> List[str]:
+        meta = self.session_meta.setdefault(session_id, {})
+        shared_with = list(meta.get("shared_with") or [])
+        normalized = email.strip().lower()
+        if normalized and normalized not in shared_with:
+            shared_with.append(normalized)
+        meta["shared_with"] = shared_with
+        self.save_chat_session(session_id)
+        return shared_with
+
+    def remove_share_invite(self, session_id: str, email: str) -> List[str]:
+        meta = self.session_meta.setdefault(session_id, {})
+        normalized = email.strip().lower()
+        shared_with = [e for e in (meta.get("shared_with") or []) if e != normalized]
+        meta["shared_with"] = shared_with
+        self.save_chat_session(session_id)
+        return shared_with
+
+    def find_session_by_share_id(self, share_id: str) -> Optional[str]:
+        """Resolves a public share token back to its private session_id.
+        Checks in-memory sessions first (cheap, common case: someone just
+        shared it), then falls back to scanning saved chat files on disk —
+        same approach as list_saved_chats_for_user — so a shared link still
+        resolves after a server restart."""
+        if not share_id or not re.fullmatch(r"[0-9a-f]{32}", share_id):
+            return None
+        for sid, meta in self.session_meta.items():
+            if meta.get("share_id") == share_id and meta.get("share_enabled"):
+                return sid
+        try:
+            for filepath in CHATS_DATA_DIR.glob("chat_*.json"):
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    continue
+                if data.get("share_id") == share_id and data.get("share_enabled"):
+                    return data.get("session_id") or filepath.stem.replace("chat_", "", 1)
+        except Exception as e:
+            logger.error("find_session_by_share_id scan failed: %s", e)
+        return None
 
     def format_history_for_llm(self, session_id: str, exclude_last: bool = False) -> List[tuple]:
         messages = self.get_chat_history(session_id)
@@ -1054,6 +1128,9 @@ class ChatService:
             "project_id": meta.get("project_id"),
             "username": meta.get("username"),
             "title": meta.get("title"),
+            "share_id": meta.get("share_id"),
+            "share_enabled": meta.get("share_enabled", False),
+            "shared_with": meta.get("shared_with", []),
         }
 
         max_retries = 3

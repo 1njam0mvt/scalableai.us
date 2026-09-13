@@ -193,10 +193,16 @@ const searchResultsClose = $('search-results-close');
 const searchResultsQuery = $('search-results-query');
 const searchResultsAnswer = $('search-results-answer');
 const searchResultsList = $('search-results-list');
-const activityPanel = $('activity-panel');
-const activityToggle = $('activity-toggle');
-const activityClose = $('activity-close');
-const activityList = $('activity-list');
+const sharePanel = $('share-panel');
+const shareToggle = $('share-toggle');
+const shareClose = $('share-close');
+const shareEmailInput = $('share-email-input');
+const shareInviteBtn = $('share-invite-btn');
+const shareCopyLinkBtn = $('share-copy-link-btn');
+const shareSettingsBtn = $('share-settings-btn');
+const shareOwnerAvatar = $('share-owner-avatar');
+const shareOwnerName = $('share-owner-name');
+const shareOwnerEmail = $('share-owner-email');
 const panelOverlay = $('panel-overlay');
 const speechWidget = $('speech-widget');
 const speechWidgetText = $('speech-widget-text');
@@ -840,6 +846,126 @@ if (chatMessages) {
     window.addEventListener('resize', removePopup);
 })();
 
+function getStoredAuthUser() {
+    try {
+        const raw = localStorage.getItem(AUTH_USER_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function renderShareOwnerRow() {
+    const user = getStoredAuthUser();
+    if (shareOwnerName) shareOwnerName.textContent = (user && (user.display_name || user.username)) || 'You';
+    if (shareOwnerEmail) shareOwnerEmail.textContent = (user && user.email) || '';
+    if (shareOwnerAvatar) {
+        const source = (user && (user.display_name || user.username)) || '?';
+        shareOwnerAvatar.textContent = source.trim().charAt(0).toUpperCase() || '?';
+    }
+}
+
+function renderShareInvitedList(sharedWith) {
+    const listEl = document.getElementById('share-access-list');
+    if (!listEl) return;
+    // Remove any previously-rendered invite rows (keep the two static rows:
+    // "Only people invited" and the owner row) before redrawing.
+    listEl.querySelectorAll('.share-invited-row').forEach(el => el.remove());
+    (sharedWith || []).forEach(email => {
+        const row = document.createElement('div');
+        row.className = 'share-access-row share-invited-row';
+        row.innerHTML =
+            '<span class="share-access-avatar">' + escapeHtml((email.charAt(0) || '?').toUpperCase()) + '</span>' +
+            '<span class="share-access-name">' + escapeHtml(email) + '</span>' +
+            '<button type="button" class="share-remove-btn" title="Remove access" data-email="' + escapeHtml(email) + '">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+        listEl.appendChild(row);
+    });
+    listEl.querySelectorAll('.share-remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => removeShareInvite(btn.getAttribute('data-email')));
+    });
+}
+
+async function loadShareState() {
+    renderShareOwnerRow();
+    if (!sessionId) {
+        showToast('Send a message first, then you can share this chat.');
+        if (sharePanel) sharePanel.classList.remove('open');
+        updatePanelOverlay();
+        return;
+    }
+    try {
+        const res = await authFetch(`${API}/chat/${encodeURIComponent(sessionId)}/share`);
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            showToast(body.detail || 'Could not load sharing info for this chat.');
+            return;
+        }
+        const data = await res.json();
+        renderShareInvitedList(data.shared_with);
+    } catch (err) {
+        showToast('Could not load sharing info — check your connection.');
+    }
+}
+
+async function submitShareInvite() {
+    if (!shareEmailInput || !sessionId) return;
+    const email = shareEmailInput.value.trim();
+    if (!email) { showToast('Enter an email address to invite.'); return; }
+    try {
+        const res = await authFetch(`${API}/chat/${encodeURIComponent(sessionId)}/share/invite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(data.detail || 'Could not send that invite.');
+            return;
+        }
+        renderShareInvitedList(data.shared_with);
+        shareEmailInput.value = '';
+        if (data.email_sent) {
+            showToast('Invited ' + email + ' — they\'ve been emailed the link.');
+        } else {
+            showToast('Added ' + email + ' — share the link with them yourself, email sending isn\'t set up.');
+        }
+    } catch (err) {
+        showToast('Could not send that invite — check your connection.');
+    }
+}
+
+async function removeShareInvite(email) {
+    if (!email || !sessionId) return;
+    try {
+        const res = await authFetch(`${API}/chat/${encodeURIComponent(sessionId)}/share/invite`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showToast(data.detail || 'Could not remove that person.'); return; }
+        renderShareInvitedList(data.shared_with);
+    } catch (err) {
+        showToast('Could not remove that person — check your connection.');
+    }
+}
+
+async function copyShareLink() {
+    if (!sessionId) { showToast('Send a message first, then you can share this chat.'); return; }
+    try {
+        const res = await authFetch(`${API}/chat/${encodeURIComponent(sessionId)}/share`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { showToast(data.detail || 'Could not create a share link.'); return; }
+        const link = `${window.location.origin}/shared/${data.share_id}`;
+        const ok = await copyTextToClipboard(link, 'Share link copied.');
+        if (!ok) showToast('Link ready, but copying failed: ' + link);
+    } catch (err) {
+        showToast('Could not create a share link — check your connection.');
+    }
+}
+
 function renderArtifactCard(artifact, contentEl) {
     if (!artifact || !contentEl) return;
     const card = document.createElement('div');
@@ -1220,11 +1346,6 @@ async function sendMessageWithImage(text, imgBase64) {
                         sessionId = data.session_id;
                         upsertRecentChat(sessionId, text);
                     }
-                    if (data.activity) {
-                        appendActivity(data.activity);
-                        if (activityToggle) activityToggle.style.display = '';
-                        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
-                    }
                     if (data.actions) handleActions(data.actions, contentEl);
                     if (data.background_tasks) handleBackgroundTasks(data.background_tasks, contentEl);
                     if (data.artifact) renderArtifactCard(data.artifact, contentEl);
@@ -1378,19 +1499,28 @@ function bindEvents() {
             }
         });
     }
-    if (activityToggle) {
-        activityToggle.addEventListener('click', () => {
-            if (activityPanel) {
-                activityPanel.classList.toggle('open');
-                updatePanelOverlay();
-            }
+    if (shareToggle && sharePanel) {
+        shareToggle.addEventListener('click', () => {
+            const willOpen = !sharePanel.classList.contains('open');
+            sharePanel.classList.toggle('open', willOpen);
+            updatePanelOverlay();
+            if (willOpen) loadShareState();
         });
     }
-    if (activityClose && activityPanel) {
-        activityClose.addEventListener('click', () => {
-            activityPanel.classList.remove('open');
+    if (shareClose && sharePanel) {
+        shareClose.addEventListener('click', () => {
+            sharePanel.classList.remove('open');
             updatePanelOverlay();
         });
+    }
+    if (shareInviteBtn && shareEmailInput) {
+        shareInviteBtn.addEventListener('click', submitShareInvite);
+        shareEmailInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitShareInvite();
+        });
+    }
+    if (shareCopyLinkBtn) {
+        shareCopyLinkBtn.addEventListener('click', copyShareLink);
     }
     if (settingsBtn && settingsPanel) {
         settingsBtn.addEventListener('click', () => {
@@ -1434,7 +1564,7 @@ function autoResizeInput() {
 
 function updatePanelOverlay() {
     if (!panelOverlay) return;
-    const anyOpen = (activityPanel && activityPanel.classList.contains('open')) ||
+    const anyOpen = (sharePanel && sharePanel.classList.contains('open')) ||
         (searchResultsWidget && searchResultsWidget.classList.contains('open')) ||
         (settingsPanel && settingsPanel.classList.contains('open'));
     panelOverlay.classList.toggle('visible', !!anyOpen);
@@ -1445,7 +1575,6 @@ function setMode(mode) {
     currentMode = mode || 'scalable';
     if (btnScalable) btnScalable.classList.add('active');
     if (modeSlider) modeSlider.classList.remove('center', 'right');
-    if (activityToggle) activityToggle.style.display = '';
 }
 
 // ---- Pending mode chip: Create image / Web search / Deep research ----
@@ -1973,7 +2102,7 @@ async function loadChatSession(id) {
         }
         scrollToBottom();
         if (searchResultsWidget) searchResultsWidget.classList.remove('open');
-        if (activityPanel) activityPanel.classList.remove('open');
+        if (sharePanel) sharePanel.classList.remove('open');
         renderRecentChats();
     } catch (e) {
         showToast('Could not load that conversation.');
@@ -1995,12 +2124,8 @@ function newChat() {
     setGreeting();
     if (searchResultsWidget) searchResultsWidget.classList.remove('open');
     if (searchResultsToggle) searchResultsToggle.style.display = 'none';
-    if (activityPanel) activityPanel.classList.remove('open');
+    if (sharePanel) sharePanel.classList.remove('open');
     if (settingsPanel) settingsPanel.classList.remove('open');
-    if (activityToggle) activityToggle.style.display = 'none';
-    if (activityList) {
-        activityList.innerHTML = '<div class="activity-empty" id="activity-empty">Send a message to see the flow here.</div>';
-    }
     updatePanelOverlay();
     renderRecentChats();
 }
@@ -2107,116 +2232,6 @@ function escapeAttr(str) {
         .replace(/>/g, '&gt;');
 }
 
-// Human-readable step labels shown in the Activity popover. These describe
-// what's happening in terms of the user's own request (opening a site,
-// searching, replying) rather than internal pipeline/component names —
-// "Primary Brain" and "Route selected" mean nothing to someone who just
-// asked to open Canva. Internal event names and timing data still flow
-// through activity.* for anyone who needs them (e.g. via devtools); this
-// map only controls the text shown in the UI.
-const ACTIVITY_STEPS = {
-    query_detected: { step: 1, label: 'Reading your message' },
-    decision: { step: 2, label: 'Understanding your request' },
-    intent_classified: { step: 3, label: 'Figuring out what to do' },
-    routing: { step: 4, label: 'Getting started' },
-    tasks_executing: { step: 0, label: 'Working on it' },
-    tasks_completed: { step: 0, label: 'Done' },
-    actions_emitted: { step: 0, label: 'Sending actions' },
-    vision_analyzing: { step: 0, label: 'Looking at the image' },
-    streaming_started: { step: 5, label: 'Writing a reply' },
-    extracting_query: { step: 0, label: 'Preparing a search' },
-    searching_web: { step: 0, label: 'Searching the web' },
-    search_completed: { step: 0, label: 'Search finished' },
-    context_retrieved: { step: 0, label: 'Recalling context' },
-    background_dispatched: { step: 0, label: 'Working in the background' },
-    first_chunk: { step: 6, label: 'Reply started' },
-};
-
-// Maps an internal route/query-type name to what it actually means for
-// the user, for use inside detail text (e.g. "Opening Canva" instead of
-// "Route selected → Task").
-function friendlyRouteNoun(route) {
-    const map = {
-        task: 'that task',
-        mixed: 'that task',
-        general: 'your question',
-        realtime: 'that up to date',
-        vision: 'the image',
-        camera: 'the camera',
-        chat: 'the conversation',
-    };
-    return map[(route || '').toLowerCase()] || 'that';
-}
-
-function appendActivity(activity) {
-    if (!activityList || !activity) return;
-    const item = document.createElement('div');
-    item.className = 'activity-item';
-    item.setAttribute('data-event', activity.event || '');
-    const stepInfo = ACTIVITY_STEPS[activity.event] || { step: 0, label: 'Working' };
-    let detail = '';
-    const addRouteClass = (route) => {
-        if (route === 'general') item.classList.add('route-general');
-        else if (route === 'realtime') item.classList.add('route-realtime');
-        else if (route === 'vision' || route === 'camera') item.classList.add('route-vision');
-        else if (route === 'task') item.classList.add('route-task');
-        else if (route === 'mixed') item.classList.add('route-task');
-        else if (route === 'chat') item.classList.add('route-chat');
-    };
-    if (activity.event === 'query_detected') {
-        detail = 'Got your message and starting to work on it.';
-    } else if (activity.event === 'decision') {
-        detail = `Looked at what you're asking for and picked the best way to handle it.`;
-        addRouteClass(activity.query_type);
-    } else if (activity.event === 'intent_classified') {
-        const what = activity.intent ? activity.intent.replace(/_/g, ' ') : 'what you need';
-        detail = `Working out how to ${what}.`;
-        item.classList.add('activity-sub', 'route-task');
-    } else if (activity.event === 'routing') {
-        detail = `Getting ${friendlyRouteNoun(activity.route)} sorted.`;
-        addRouteClass(activity.route);
-    } else if (activity.event === 'tasks_executing') {
-        detail = activity.message || 'Running the steps needed for this.';
-        item.classList.add('activity-sub', 'route-task');
-    } else if (activity.event === 'tasks_completed') {
-        detail = activity.message || 'That part is done.';
-        item.classList.add('activity-sub', 'route-task');
-    } else if (activity.event === 'actions_emitted') {
-        detail = activity.message || 'Sending this to your browser.';
-        item.classList.add('activity-sub');
-    } else if (activity.event === 'vision_analyzing') {
-        detail = activity.message || 'Taking a look at the image you shared.';
-        item.classList.add('activity-sub', 'route-vision');
-    } else if (activity.event === 'streaming_started') {
-        detail = 'Putting the reply together now.';
-        addRouteClass(activity.route);
-    } else if (activity.event === 'first_chunk') {
-        detail = 'The reply is on its way.';
-        addRouteClass(activity.route);
-    } else if (activity.event === 'extracting_query') {
-        detail = 'Working out exactly what to search for.';
-        item.classList.add('activity-sub');
-    } else if (activity.event === 'searching_web') {
-        detail = activity.query ? `Searching for "${activity.query}".` : 'Searching the web for current info.';
-        item.classList.add('activity-sub', 'route-realtime');
-    } else if (activity.event === 'search_completed') {
-        detail = 'Found what was needed.';
-        item.classList.add('activity-sub', 'route-realtime');
-    } else if (activity.event === 'context_retrieved') {
-        detail = 'Pulled in what it remembers to help answer this.';
-        item.classList.add('activity-sub', 'route-general');
-    } else {
-        detail = activity.message || '';
-    }
-    const stepNum = stepInfo.step ? `<span class="activity-step">${stepInfo.step}</span>` : '';
-    item.innerHTML = `
-        <div class="activity-event">${stepNum}${escapeHtml(stepInfo.label)}</div>
-        <div class="activity-detail">${escapeHtml(detail || '')}</div>`;
-    const emptyEl = activityList.querySelector('.activity-empty');
-    if (emptyEl) emptyEl.style.display = 'none';
-    activityList.appendChild(item);
-    activityList.scrollTop = activityList.scrollHeight;
-}
 
 function escapeHtml(str) {
     if (typeof str !== 'string') return '';
@@ -2388,11 +2403,6 @@ async function sendMessage(textOverride) {
     if (ttsPlayer) { ttsPlayer.reset(); ttsPlayer.unlock(); }
     const messageToSend = imgBase64 ? (text + ' ' + CAM_BYPASS_TOKEN) : text;
     const endpoint = '/chat/scalable/stream';
-    if (activityList) {
-        activityList.innerHTML = '<div class="activity-empty" id="activity-empty">Working on it…</div>';
-        if (activityToggle) activityToggle.style.display = '';
-        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
-    }
     let firstChunkReceived = false;
     let timeoutId = null;
     const controller = new AbortController();
@@ -2445,11 +2455,6 @@ async function sendMessage(textOverride) {
                     if (data.session_id) {
                         sessionId = data.session_id;
                         upsertRecentChat(sessionId, titleText);
-                    }
-                    if (data.activity) {
-                        appendActivity(data.activity);
-                        if (activityToggle) activityToggle.style.display = '';
-                        // Activity panel no longer auto-opens on replies — it only opens when the user taps its toggle button (see activity-toggle handler below).
                     }
                     if (data.search_results) {
                         renderSearchResults(data.search_results);

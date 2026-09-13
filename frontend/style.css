@@ -3148,8 +3148,7 @@ body.guest-mode .account-menu-wrap {
     border-color: var(--line-strong);
 }
 
-.btn-icon.active-state,
-.activity-toggle.open-state {
+.btn-icon.active-state {
     color: var(--violet);
     background: var(--accent-soft);
     border-color: var(--accent-line);
@@ -4277,6 +4276,276 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     }
 }
 
+/* Share panel — same dropdown-on-desktop / centered-sheet-on-mobile shape
+   as .settings-panel above, since it's the same kind of header popover. */
+.share-menu-wrap {
+    position: relative;
+}
+
+.share-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(380px, calc(100vw - 24px));
+    max-height: min(75vh, 560px);
+    max-height: min(75dvh, 560px);
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top right;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform var(--fast) var(--ease), opacity var(--fast) var(--ease);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+.share-panel.open {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 700px) {
+    .share-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -48%) scale(0.98);
+        width: min(400px, calc(100vw - 32px));
+        max-height: min(80vh, 80dvh);
+    }
+
+    .share-panel.open {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.share-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.share-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-0);
+}
+
+.share-subtitle {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.share-body {
+    padding: 14px 16px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.share-invite-row {
+    display: flex;
+    gap: 8px;
+}
+
+.share-email-input {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    color: var(--ink-0);
+    font-size: 13.5px;
+    font-family: inherit;
+}
+
+.share-email-input:focus {
+    outline: none;
+    border-color: var(--accent-line);
+}
+
+.share-email-input::placeholder {
+    color: var(--ink-2);
+}
+
+.share-invite-btn {
+    flex: 0 0 auto;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: var(--r-sm);
+    border: none;
+    background: var(--ink-0);
+    color: var(--bg-1);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity var(--fast) var(--ease);
+}
+
+.share-invite-btn:hover {
+    opacity: 0.85;
+}
+
+.share-access-label {
+    margin: 18px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.share-access-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.share-access-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-radius: var(--r-sm);
+}
+
+.share-access-row:hover {
+    background: var(--bg-3);
+}
+
+.share-access-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-3);
+    color: var(--ink-1);
+}
+
+.share-access-avatar {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--violet);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.share-access-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--ink-0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.share-access-you {
+    color: var(--ink-2);
+    font-weight: 400;
+    margin-left: 4px;
+}
+
+.share-access-email {
+    display: block;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.share-access-role {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--ink-2);
+}
+
+.share-access-chevron {
+    flex: 0 0 auto;
+    color: var(--ink-2);
+}
+
+.share-remove-btn {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    border: none;
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.share-remove-btn:hover {
+    background: var(--bg-2);
+    color: var(--danger);
+}
+
+.share-disclaimer {
+    margin: 16px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+}
+
+.share-disclaimer a {
+    color: var(--ink-1);
+    text-decoration: underline;
+}
+
+.share-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+}
+
+.share-copy-link-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: var(--r-sm);
+    border: none;
+    background: var(--ink-0);
+    color: var(--bg-1);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity var(--fast) var(--ease);
+}
+
+.share-copy-link-btn:hover {
+    opacity: 0.85;
+}
+
 /* Activity + search results are docked into the layout, not floated over it:
    the chat column smoothly gives up width instead of being covered/blurred. */
 .search-results-widget {
@@ -4299,200 +4568,6 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     width: min(var(--panel-w), 100%);
     opacity: 1;
     border-left-color: var(--line);
-}
-
-/* Activity is a floating rounded card docked to the left of the chat,
-   not a flush full-height strip — keeps it readable and never crowds text. */
-.activity-panel {
-    position: relative;
-    z-index: 5;
-    flex: 0 0 auto;
-    align-self: flex-start;
-    width: 0;
-    min-width: 0;
-    max-height: calc(100% - 24px);
-    margin: 12px 0 12px 12px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-1);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-lg);
-    opacity: 0;
-    transition: width var(--med) var(--ease), opacity var(--fast) var(--ease);
-}
-
-.activity-panel.open {
-    width: min(var(--panel-w), calc(100% - 24px));
-    opacity: 1;
-}
-
-/* Mobile: max-height: calc(100% - 24px) depends on several nested flex/
-   grid ancestors resolving their heights correctly, which mobile browser
-   chrome (address bar showing/hiding) can throw off in practice — same
-   root cause as the settings-panel and language-menu cutoff fixed
-   earlier. Give it its own explicit, viewport-anchored cap instead of
-   relying on inherited percentages. */
-@media (max-width: 700px) {
-    .activity-panel.open {
-        max-height: min(calc(100dvh - 140px), calc(100vh - 140px), calc(var(--app-vh, 100dvh) - 140px));
-    }
-}
-
-
-.activity-header,
-.search-results-header,
-.settings-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--line);
-    flex: 0 0 auto;
-}
-
-.activity-title,
-.search-results-title,
-.settings-title {
-    margin: 0;
-    font-family: var(--f-display);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink-0);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.activity-live-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--violet);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-    animation: status-breathe 1.8s ease-in-out infinite;
-}
-
-.activity-close,
-.search-results-close,
-.settings-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: var(--r-sm);
-    background: transparent;
-    border: none;
-    color: var(--ink-2);
-    cursor: pointer;
-    transition: all var(--fast) var(--ease);
-}
-
-.activity-close:hover,
-.search-results-close:hover,
-.settings-close:hover {
-    color: var(--ink-0);
-    background: var(--bg-2);
-}
-
-/* ---- activity ---- */
-.activity-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 14px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.activity-empty {
-    margin-top: 40px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--ink-3);
-}
-
-.activity-item {
-    padding: 11px 13px 11px 16px;
-    border-radius: var(--r-md);
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-left: none;
-    box-shadow: var(--shadow-sm);
-    transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
-    animation: rise var(--fast) var(--ease);
-}
-
-.activity-item:hover {
-    transform: translateX(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.activity-item.activity-sub {
-    margin-left: 16px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding-left: 14px;
-}
-
-.activity-item.route-chat .activity-event::before {
-    background: var(--ink-1);
-}
-
-.activity-item.route-general .activity-event::before {
-    background: var(--cyan);
-}
-
-.activity-item.route-realtime .activity-event::before {
-    background: var(--warn);
-}
-
-.activity-item.route-task .activity-event::before {
-    background: var(--violet);
-}
-
-.activity-item.route-vision .activity-event::before {
-    background: var(--ok);
-}
-
-.activity-event {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--ink-0);
-}
-
-.activity-event::before {
-    content: '';
-    flex: 0 0 auto;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--ink-3);
-}
-
-.activity-step {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--ink-2);
-    background: var(--bg-3);
-    border-radius: var(--r-pill);
-    padding: 2px 8px;
-    margin-left: auto;
-}
-
-.activity-detail {
-    margin-top: 5px;
-    padding-left: 15px;
-    font-size: 12px;
-    color: var(--ink-2);
-    line-height: 1.5;
 }
 
 /* ---- search results ---- */
