@@ -2758,8 +2758,14 @@ body.guest-mode .account-menu-wrap {
    off-canvas below 860px (see .sidebar rules) and can't be tapped open
    from a hidden state — this sits in the main header instead, visible
    regardless of logged-in state. */
+/* display: none !important here beats .btn-icon's own `display: flex`
+   unconditionally — that rule is declared later in the file and, being
+   an equal-specificity single-class selector, would otherwise win the
+   tie by source order alone (same issue fixed earlier for the clipboard/
+   share buttons on the welcome screen). The mobile media query below
+   re-enables it with its own !important so it still shows under 860px. */
 .mobile-sidebar-open {
-    display: none;
+    display: none !important;
     flex: 0 0 auto;
     padding: 0;
     overflow: hidden;
@@ -2774,7 +2780,7 @@ body.guest-mode .account-menu-wrap {
 
 @media (max-width: 860px) {
     .mobile-sidebar-open {
-        display: flex;
+        display: flex !important;
     }
 }
 
