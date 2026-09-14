@@ -2585,17 +2585,29 @@ body.guest-mode .account-menu-wrap {
 }
 
 @media (max-width: 860px) {
+
+    /* Sidebar is fully off-canvas by default on mobile — no permanently
+       visible icon rail, logged in or out. It only appears as a complete
+       overlay when opened (via the logo badge, or the toggle button),
+       sliding the full width in from the left and sitting on top of the
+       app rather than reserving space next to it. */
     .sidebar {
         position: fixed;
         left: 0;
         top: 0;
-        width: var(--sidebar-w-collapsed);
+        width: var(--sidebar-w);
+        transform: translateX(-100%);
         box-shadow: var(--shadow-lg);
         z-index: 70;
+        transition: transform var(--med) var(--ease);
     }
 
-    .sidebar:not(.collapsed) {
+    .sidebar.collapsed {
         width: var(--sidebar-w);
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0);
     }
 
     .sidebar-scrim {
@@ -2608,13 +2620,13 @@ body.guest-mode .account-menu-wrap {
         transition: opacity var(--med) var(--ease);
     }
 
-    .sidebar:not(.collapsed)~.sidebar-scrim {
+    .sidebar.mobile-open~.sidebar-scrim {
         opacity: 1;
         pointer-events: auto;
     }
 
     .workspace {
-        margin-left: var(--sidebar-w-collapsed);
+        margin-left: 0;
     }
 }
 
@@ -2740,6 +2752,30 @@ body.guest-mode .account-menu-wrap {
     align-items: center;
     gap: 12px;
     min-width: 0;
+}
+
+/* Mobile-only trigger for the sidebar, since the sidebar itself is fully
+   off-canvas below 860px (see .sidebar rules) and can't be tapped open
+   from a hidden state — this sits in the main header instead, visible
+   regardless of logged-in state. */
+.mobile-sidebar-open {
+    display: none;
+    flex: 0 0 auto;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 50%;
+}
+
+.mobile-sidebar-open-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 860px) {
+    .mobile-sidebar-open {
+        display: flex;
+    }
 }
 
 .header-left>div {

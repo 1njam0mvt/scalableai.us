@@ -964,6 +964,82 @@ function syncSharePanelHeight(showSettings) {
 // problem — this only runs below the mobile breakpoint).
 const MOBILE_PANEL_BREAKPOINT = 700;
 
+// ---- Mobile sidebar: fully off-canvas by default, opened via the logo
+// badge in the header (or the toggle button inside the sidebar itself),
+// closed via the scrim, the same buttons again, or picking a nav item.
+// Works identically logged in or as a guest — nothing here checks auth
+// state, unlike some other header controls. ----
+(function initMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const scrim = document.getElementById('sidebar-scrim');
+    const openBtn = document.getElementById('mobile-sidebar-open');
+    const innerToggleBtn = document.getElementById('sidebar-toggle');
+    if (!sidebar) return;
+
+    function isMobileWidth() {
+        return window.innerWidth <= 860;
+    }
+
+    function openMobileSidebar() {
+        // Only one overlay should be open at a time — closing Share/
+        // Settings if the drawer opens while either is showing keeps the
+        // stacking (drawer sits above them) from ever mattering in
+        // practice, and avoids a hidden panel silently still being "open"
+        // underneath.
+        if (typeof sharePanel !== 'undefined' && sharePanel && sharePanel.classList.contains('open')) {
+            sharePanel.classList.remove('open', 'show-settings');
+            sharePanel.style.height = '';
+            if (typeof restorePanelHome === 'function') restorePanelHome(sharePanel);
+        }
+        if (typeof settingsPanel !== 'undefined' && settingsPanel && settingsPanel.classList.contains('open')) {
+            settingsPanel.classList.remove('open');
+            if (typeof restorePanelHome === 'function') restorePanelHome(settingsPanel);
+        }
+        if (typeof updatePanelOverlay === 'function') updatePanelOverlay();
+        sidebar.classList.add('mobile-open');
+    }
+
+    function closeMobileSidebar() {
+        sidebar.classList.remove('mobile-open');
+    }
+
+    function toggleMobileSidebar() {
+        sidebar.classList.toggle('mobile-open');
+    }
+
+    if (openBtn) openBtn.addEventListener('click', openMobileSidebar);
+    if (scrim) scrim.addEventListener('click', closeMobileSidebar);
+    if (innerToggleBtn) {
+        innerToggleBtn.addEventListener('click', () => {
+            if (isMobileWidth()) {
+                toggleMobileSidebar();
+            } else {
+                // Desktop keeps its existing behaviour: narrow icon-rail
+                // collapse rather than a full off-canvas drawer.
+                sidebar.classList.toggle('collapsed');
+            }
+        });
+    }
+
+    // Picking a chat, starting a new one, or switching sections should
+    // close the drawer on mobile — otherwise it stays open covering the
+    // content the person just navigated to.
+    sidebar.addEventListener('click', (e) => {
+        if (!isMobileWidth()) return;
+        const actionable = e.target.closest(
+            '.sidebar-history-item, .sidebar-new-chat, .sidebar-nav-item'
+        );
+        if (actionable) closeMobileSidebar();
+    });
+
+    // Crossing the mobile breakpoint (rotating a phone, resizing a
+    // desktop window) shouldn't leave the drawer stuck open once there's
+    // room for the permanent desktop sidebar instead.
+    window.addEventListener('resize', () => {
+        if (!isMobileWidth()) closeMobileSidebar();
+    });
+})();
+
 function relocatePanelForViewport(panelEl, anchorId) {
     if (!panelEl) return;
     const isMobile = window.innerWidth <= MOBILE_PANEL_BREAKPOINT;
@@ -1672,7 +1748,8 @@ function bindEvents() {
         });
     }
     if (shareToggle && sharePanel) {
-        shareToggle.addEventListener('click', () => {
+        shareToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
             const willOpen = !sharePanel.classList.contains('open');
             if (willOpen) relocatePanelForViewport(sharePanel, 'share-menu-wrap');
             sharePanel.classList.toggle('open', willOpen);
@@ -1699,6 +1776,12 @@ function bindEvents() {
             sharePanel.classList.remove('open', 'show-settings');
             sharePanel.style.height = '';
             restorePanelHome(sharePanel);
+            updatePanelOverlay();
+        }
+        if (settingsPanel && settingsPanel.classList.contains('open')) {
+            e.preventDefault();
+            settingsPanel.classList.remove('open');
+            restorePanelHome(settingsPanel);
             updatePanelOverlay();
         }
         closeShareAccessDropdowns();
@@ -1749,7 +1832,8 @@ function bindEvents() {
         });
     }
     if (settingsBtn && settingsPanel) {
-        settingsBtn.addEventListener('click', () => {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             const willOpen = !settingsPanel.classList.contains('open');
             if (willOpen) relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
             settingsPanel.classList.toggle('open', willOpen);
@@ -2281,7 +2365,7 @@ window.renderRecentChats = renderRecentChats;
     }
 })();
 
-document.addEventListener('click', () => {
+document.addEventListener('click', (e) => {
     document.querySelectorAll('.sidebar-history-dropdown.open').forEach(d => d.classList.remove('open'));
     document.querySelectorAll('.sidebar-history-item-menu-wrap.force-visible').forEach(w => w.classList.remove('force-visible'));
     const organizeMenuEl = document.getElementById('sidebar-organize-menu');
@@ -2289,6 +2373,23 @@ document.addEventListener('click', () => {
     const organizeBtnEl = document.getElementById('sidebar-organize-btn');
     if (organizeBtnEl) organizeBtnEl.setAttribute('aria-expanded', 'false');
     document.querySelectorAll('.sidebar-recent-actions.force-visible').forEach(a => a.classList.remove('force-visible'));
+
+    // Left-click anywhere outside the share panel closes it too (right-
+    // click already does, via the contextmenu listener above) — matches
+    // the "click outside to dismiss" behaviour of a normal popover.
+    // Clicks inside the panel itself (typing an email, opening the access
+    // dropdown) are excluded so those don't immediately close it.
+    if (sharePanel && sharePanel.classList.contains('open') && !sharePanel.contains(e.target)) {
+        sharePanel.classList.remove('open', 'show-settings');
+        sharePanel.style.height = '';
+        restorePanelHome(sharePanel);
+        updatePanelOverlay();
+    }
+    if (settingsPanel && settingsPanel.classList.contains('open') && !settingsPanel.contains(e.target)) {
+        settingsPanel.classList.remove('open');
+        restorePanelHome(settingsPanel);
+        updatePanelOverlay();
+    }
 });
 
 async function loadChatSession(id) {
