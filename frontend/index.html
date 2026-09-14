@@ -28,8 +28,26 @@
     <script src="/i18n/i18n.js" defer></script>
 </head>
 
-<body>
+<body class="guest-mode">
     <script>
+        (function () {
+            // Avoids a visible flash where the sidebar briefly shows guest
+            // controls (Log in / Sign up) before flipping to the logged-in
+            // account menu a moment later once the async /auth/me check
+            // resolves — <body> starts as guest-mode by default (the safe
+            // default for a first-ever visit), but if a token is already
+            // sitting in localStorage from a previous session, this removes
+            // guest-mode immediately, before first paint, matching what
+            // the async check will almost certainly confirm a moment later.
+            // The real validity check still happens later — this only
+            // avoids the visual jump for the common "already logged in"
+            // case, it never trusts the token's validity on its own.
+            try {
+                if (localStorage.getItem('scalable_auth_token')) {
+                    document.body.classList.remove('guest-mode');
+                }
+            } catch (e) { }
+        })();
         (function () {
             // Sync the in-app language picker (account menu / settings) with any
             // ?lang= or localStorage value — no redirect, stays in the app.

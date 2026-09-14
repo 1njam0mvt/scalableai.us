@@ -1011,13 +1011,10 @@ const MOBILE_PANEL_BREAKPOINT = 700;
     if (scrim) scrim.addEventListener('click', closeMobileSidebar);
     if (innerToggleBtn) {
         innerToggleBtn.addEventListener('click', () => {
-            if (isMobileWidth()) {
-                toggleMobileSidebar();
-            } else {
-                // Desktop keeps its existing behaviour: narrow icon-rail
-                // collapse rather than a full off-canvas drawer.
-                sidebar.classList.toggle('collapsed');
-            }
+            // Mobile only — this button previously had no handler at all
+            // on desktop (a pre-existing, intentionally-left-as-is
+            // behavior), so it stays a no-op there.
+            if (isMobileWidth()) toggleMobileSidebar();
         });
     }
 
