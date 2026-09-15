@@ -261,8 +261,9 @@ body.guest-mode .guest-account-prompt {
 }
 
 .guest-account-login {
-    border: 1px solid var(--line-strong);
+    background: transparent;
     color: var(--ink-0);
+    border: 1.5px solid var(--ink-0);
 }
 
 .guest-account-signup {
@@ -2628,6 +2629,17 @@ body.guest-mode .account-menu-wrap {
     .workspace {
         margin-left: 0;
     }
+
+    /* Settings/Help/Bug-report icons are the desktop-collapsed icon
+       rail's stand-ins for those same links (which normally live in the
+       account flyout menu) — mobile always shows the full drawer, never
+       that collapsed rail, so this group has no reason to appear here
+       for guests or logged-in users alike. !important guards against
+       .sidebar.collapsed (a desktop-only state) ever coinciding with the
+       mobile drawer and showing this group unintentionally. */
+    .sidebar-collapsed-icons {
+        display: none !important;
+    }
 }
 
 @media (min-width: 861px) {
@@ -2766,16 +2778,43 @@ body.guest-mode .account-menu-wrap {
    re-enables it with its own !important so it still shows under 860px. */
 .mobile-sidebar-open {
     display: none !important;
+    position: relative;
     flex: 0 0 auto;
     padding: 0;
-    overflow: hidden;
-    border-radius: 50%;
+    overflow: visible;
+    border: none;
+    background: transparent;
 }
 
 .mobile-sidebar-open-logo {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
+}
+
+/* A lightweight CSS-only spinning ring stands in for the full WebGL orb
+   used elsewhere (the welcome-screen icon, the "thinking" indicator) —
+   a second live WebGL context just for a 32px header icon isn't worth
+   the GPU/battery cost on a page that may already run one, especially
+   on mobile where this button lives. This reads as "the rotating logo"
+   at a glance while costing nothing beyond a CSS animation. */
+.mobile-sidebar-open-ring {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--violet), var(--cyan), var(--violet));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+    animation: mobile-sidebar-open-spin 2.2s linear infinite;
+}
+
+@keyframes mobile-sidebar-open-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @media (max-width: 860px) {
