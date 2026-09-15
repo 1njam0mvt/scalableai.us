@@ -1500,26 +1500,18 @@
     <script>
         (function () {
             var sidebar = document.getElementById('sidebar');
-            var sidebarToggle = document.getElementById('sidebar-toggle');
 
-            function isMobile() { return window.matchMedia('(max-width: 860px)').matches; }
-
-            // On phones the sidebar starts as a slim always-visible icon rail
-            // instead of hiding fully off-screen, so the toggle is never stranded.
-            if (sidebar && isMobile()) sidebar.classList.add('collapsed');
-
-            if (sidebarToggle && sidebar) {
-                sidebarToggle.addEventListener('click', function () {
-                    sidebar.classList.toggle('collapsed');
-                });
-            }
-
-            var sidebarScrim = document.getElementById('sidebar-scrim');
-            if (sidebarScrim && sidebar) {
-                sidebarScrim.addEventListener('click', function () {
-                    sidebar.classList.add('collapsed');
-                });
-            }
+            // NOTE: mobile's own open/close handling — including the sidebar
+            // toggle button and the scrim — lives entirely in initMobileSidebar()
+            // inside script.js now, which treats mobile as a fully off-canvas
+            // drawer (.mobile-open), not this desktop-style narrow icon rail
+            // (.collapsed). This block used to also force `.collapsed` onto
+            // the sidebar on mobile load and wire its own competing toggle/
+            // scrim handlers — running two independent systems on the same
+            // element at once, which is why the mobile drawer was
+            // intermittently rendering in the desktop-collapsed shape (avatar-
+            // only account row, no Log in/Sign up, no chat history visible).
+            // Only the genuinely desktop-only pieces below remain.
 
             var accountBtn = document.getElementById('sidebar-account-btn');
             var accountMenu = document.getElementById('account-menu');
