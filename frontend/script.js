@@ -217,6 +217,7 @@ const panelOverlay = $('panel-overlay');
 const speechWidget = $('speech-widget');
 const speechWidgetText = $('speech-widget-text');
 const settingsBtn = $('settings-btn');
+const guestSidebarSettingsBtn = $('guest-sidebar-settings-btn');
 const camBtn = $('cam-btn');
 const camPanel = $('cam-panel');
 const camVideo = $('cam-video');
@@ -1011,10 +1012,11 @@ const MOBILE_PANEL_BREAKPOINT = 700;
     if (scrim) scrim.addEventListener('click', closeMobileSidebar);
     if (innerToggleBtn) {
         innerToggleBtn.addEventListener('click', () => {
-            // Mobile only — this button previously had no handler at all
-            // on desktop (a pre-existing, intentionally-left-as-is
-            // behavior), so it stays a no-op there.
-            if (isMobileWidth()) toggleMobileSidebar();
+            if (isMobileWidth()) {
+                toggleMobileSidebar();
+            } else {
+                sidebar.classList.toggle('collapsed');
+            }
         });
     }
 
@@ -1024,7 +1026,7 @@ const MOBILE_PANEL_BREAKPOINT = 700;
     sidebar.addEventListener('click', (e) => {
         if (!isMobileWidth()) return;
         const actionable = e.target.closest(
-            '.sidebar-history-item, .sidebar-new-chat, .sidebar-nav-item'
+            '.sidebar-history-item, .sidebar-new-chat, .sidebar-nav-item, #guest-sidebar-settings-btn'
         );
         if (actionable) closeMobileSidebar();
     });
@@ -1830,6 +1832,22 @@ function bindEvents() {
     }
     if (settingsBtn && settingsPanel) {
         settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willOpen = !settingsPanel.classList.contains('open');
+            if (willOpen) relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
+            settingsPanel.classList.toggle('open', willOpen);
+            updatePanelOverlay();
+            if (!willOpen) restorePanelHome(settingsPanel);
+        });
+    }
+    if (guestSidebarSettingsBtn && settingsPanel) {
+        // Mobile-only entry point (see .guest-account-prompt CSS — this
+        // whole row only renders for guests on narrow screens): opens the
+        // same Settings panel as the header's gear icon, since guests on
+        // mobile don't otherwise have that button visible to them
+        // (.mobile-guest-hide) — this replaces "Sign up" for exactly that
+        // reason, without adding a second, separate settings UI.
+        guestSidebarSettingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const willOpen = !settingsPanel.classList.contains('open');
             if (willOpen) relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');

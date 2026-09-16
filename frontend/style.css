@@ -249,7 +249,8 @@ body.guest-mode .guest-account-prompt {
     display: none !important;
 }
 
-.guest-account-prompt a {
+.guest-account-prompt a,
+.guest-account-prompt button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -258,6 +259,8 @@ body.guest-mode .guest-account-prompt {
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
+    font-family: inherit;
+    cursor: pointer;
 }
 
 .guest-account-login {
@@ -269,9 +272,11 @@ body.guest-mode .guest-account-prompt {
 .guest-account-signup {
     background: var(--ink-0);
     color: var(--bg-0) !important;
+    border: none;
 }
 
-.guest-account-prompt a:hover {
+.guest-account-prompt a:hover,
+.guest-account-prompt button:hover {
     filter: brightness(1.08);
 }
 
