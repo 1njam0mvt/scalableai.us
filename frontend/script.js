@@ -218,6 +218,8 @@ const speechWidget = $('speech-widget');
 const speechWidgetText = $('speech-widget-text');
 const settingsBtn = $('settings-btn');
 const guestSidebarSettingsBtn = $('guest-sidebar-settings-btn');
+const guestMobileHelpBtn = $('guest-mobile-help-btn');
+const guestMobileBugBtn = $('guest-mobile-bug-btn');
 const camBtn = $('cam-btn');
 const camPanel = $('cam-panel');
 const camVideo = $('cam-video');
@@ -1026,7 +1028,7 @@ const MOBILE_PANEL_BREAKPOINT = 700;
     sidebar.addEventListener('click', (e) => {
         if (!isMobileWidth()) return;
         const actionable = e.target.closest(
-            '.sidebar-history-item, .sidebar-new-chat, .sidebar-nav-item, #guest-sidebar-settings-btn'
+            '.sidebar-history-item, .sidebar-new-chat, .sidebar-nav-item, #guest-sidebar-settings-btn, #guest-mobile-help-btn, #guest-mobile-bug-btn'
         );
         if (actionable) closeMobileSidebar();
     });
@@ -1854,6 +1856,16 @@ function bindEvents() {
             settingsPanel.classList.toggle('open', willOpen);
             updatePanelOverlay();
             if (!willOpen) restorePanelHome(settingsPanel);
+        });
+    }
+    if (guestMobileHelpBtn) {
+        guestMobileHelpBtn.addEventListener('click', () => {
+            window.open('/faq.html', '_blank', 'noopener');
+        });
+    }
+    if (guestMobileBugBtn) {
+        guestMobileBugBtn.addEventListener('click', () => {
+            window.open('/contact.html#report-a-bug', '_blank', 'noopener');
         });
     }
     if (settingsClose && settingsPanel) {

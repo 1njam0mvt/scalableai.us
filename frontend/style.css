@@ -238,7 +238,8 @@ body:not(.chat-mode) .share-menu-wrap {
 
 body.guest-mode .guest-account-prompt {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr auto;
+    align-items: center;
 }
 
 /* Collapsed sidebar: hide Log in / Sign up here — they only fit and read
@@ -249,8 +250,7 @@ body.guest-mode .guest-account-prompt {
     display: none !important;
 }
 
-.guest-account-prompt a,
-.guest-account-prompt button {
+.guest-account-prompt a {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -269,15 +269,72 @@ body.guest-mode .guest-account-prompt {
     border: 1.5px solid var(--ink-0);
 }
 
-.guest-account-signup {
-    background: var(--ink-0);
-    color: var(--bg-0) !important;
-    border: none;
+/* Circular settings button next to Log in — same idea as the header's
+   own gear icon, sized and shaped to match rather than a second full-
+   width pill sitting beside "Log in". */
+.guest-sidebar-settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-1);
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
-.guest-account-prompt a:hover,
-.guest-account-prompt button:hover {
+.guest-sidebar-settings-btn:hover {
+    background: var(--bg-3);
+    color: var(--ink-0);
+}
+
+.guest-account-prompt a:hover {
     filter: brightness(1.08);
+}
+
+/* Full-width Help Center / Bug report rows shown above Log in for guests
+   on mobile only — desktop guests reach these through the account menu
+   instead, same as logged-in users do. */
+.guest-mobile-links {
+    display: none;
+    flex-direction: column;
+    margin-bottom: 8px;
+}
+
+.guest-mobile-link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 4px;
+    border: none;
+    background: transparent;
+    color: var(--ink-0);
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+}
+
+.guest-mobile-link-row:hover {
+    background: var(--bg-2);
+}
+
+.guest-mobile-link-row svg {
+    flex: 0 0 auto;
+    color: var(--ink-1);
+}
+
+@media (max-width: 860px) {
+    body.guest-mode .guest-mobile-links {
+        display: flex;
+    }
 }
 
 body.guest-mode .account-menu-wrap {
