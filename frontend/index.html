@@ -322,15 +322,90 @@
                 </div>
                 <div class="guest-account-prompt" id="guest-account-prompt">
                     <a href="/app/?mode=login" class="guest-account-login" data-i18n="auth.login_link">Log in</a>
-                    <button type="button" class="guest-sidebar-settings-btn" id="guest-sidebar-settings-btn"
-                        title="Settings" aria-label="Settings">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="3" />
-                            <path
-                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                        </svg>
-                    </button>
+                    <a href="/app/?mode=signup" class="guest-account-signup guest-desktop-signup"
+                        data-i18n="auth.signup_btn">Sign up</a>
+                    <div class="guest-sidebar-settings-wrap">
+                        <button type="button" class="guest-sidebar-settings-btn guest-mobile-settings-btn"
+                            id="guest-sidebar-settings-btn" title="Settings" aria-label="Settings" aria-haspopup="true"
+                            aria-expanded="false">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3" />
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                            </svg>
+                        </button>
+                        <div class="guest-sidebar-settings-panel" id="guest-sidebar-settings-panel" aria-hidden="true">
+                            <div class="settings-header">
+                                <h3 class="settings-title">Settings</h3>
+                                <button class="settings-close btn-icon" id="guest-sidebar-settings-close" title="Close"
+                                    aria-label="Close settings">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="settings-body">
+                                <div class="settings-item">
+                                    <label class="settings-label" for="guest-toggle-improve-model">Improve the
+                                        model for everyone</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="guest-toggle-improve-model" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-item">
+                                    <label class="settings-label" for="guest-toggle-marketing-measurement">Marketing
+                                        measurement</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="guest-toggle-marketing-measurement" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-item">
+                                    <label class="settings-label" for="guest-toggle-personalized-marketing">Personalized
+                                        marketing</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="guest-toggle-personalized-marketing" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="settings-hint">These control how your activity on ScalableAI can be used
+                                    — to improve the underlying model, to measure marketing performance, or to
+                                    personalize marketing you see. They're saved to this device now and moved to
+                                    your account automatically once you log in or sign up.</p>
+
+                                <div class="settings-divider"></div>
+
+                                <div class="settings-item">
+                                    <label class="settings-label" for="guest-settings-language-select">Response
+                                        language</label>
+                                    <select class="settings-select" id="guest-settings-language-select"></select>
+                                </div>
+                                <div class="settings-item">
+                                    <label class="settings-label" for="guest-settings-voice-select">Spoken
+                                        voice</label>
+                                    <select class="settings-select" id="guest-settings-voice-select">
+                                        <option value="">Default (Ryan, UK)</option>
+                                        <option value="en-GB-RyanNeural">Ryan — UK, male</option>
+                                        <option value="en-GB-SoniaNeural">Sonia — UK, female</option>
+                                        <option value="en-GB-LibbyNeural">Libby — UK, female</option>
+                                        <option value="en-GB-ThomasNeural">Thomas — UK, male</option>
+                                        <option value="en-US-JennyNeural">Jenny — US, female</option>
+                                        <option value="en-US-GuyNeural">Guy — US, male</option>
+                                        <option value="en-US-AriaNeural">Aria — US, female</option>
+                                        <option value="en-US-EricNeural">Eric — US, male</option>
+                                        <option value="en-AU-NatashaNeural">Natasha — Australia, female</option>
+                                        <option value="en-AU-WilliamNeural">William — Australia, male</option>
+                                        <option value="en-IN-NeerjaNeural">Neerja — India, female</option>
+                                        <option value="en-IN-PrabhatNeural">Prabhat — India, male</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="account-menu-wrap">
                     <div class="account-menu" id="account-menu" role="menu">
@@ -2408,6 +2483,55 @@
                         else localStorage.removeItem(TTS_VOICE_KEY);
                     } catch (e) { }
                     var label = settingsVoiceSelect.options[settingsVoiceSelect.selectedIndex].textContent;
+                    showToastSafe('Spoken voice set to ' + label + '.');
+                });
+            }
+
+            // ---- Same two controls again, inside the separate guest
+            // sidebar settings panel — kept in sync with the header
+            // versions above via the same localStorage keys, since both
+            // are just different entry points to the same underlying
+            // language/voice choice. ----
+            var guestSettingsLangSelect = document.getElementById('guest-settings-language-select');
+            if (guestSettingsLangSelect) {
+                LANGUAGES.forEach(function (lang) {
+                    var opt = document.createElement('option');
+                    opt.value = lang;
+                    opt.textContent = lang;
+                    guestSettingsLangSelect.appendChild(opt);
+                });
+                guestSettingsLangSelect.value = selectedLanguage;
+                guestSettingsLangSelect.addEventListener('change', function () {
+                    var lang = guestSettingsLangSelect.value;
+                    selectedLanguage = lang;
+                    if (settingsLangSelect) settingsLangSelect.value = lang;
+                    if (langValue) langValue.textContent = lang;
+                    if (langList) {
+                        langList.querySelectorAll('.account-lang-item').forEach(function (i) {
+                            i.classList.toggle('active', i.dataset.lang === lang);
+                        });
+                    }
+                    try {
+                        if (lang === 'English') localStorage.removeItem(LANGUAGE_KEY);
+                        else localStorage.setItem(LANGUAGE_KEY, lang);
+                    } catch (e) { }
+                    showToastSafe(lang === 'English' ? 'ScalableAI will reply in English.' : 'ScalableAI will now reply in ' + lang + '.');
+                });
+            }
+
+            var guestSettingsVoiceSelect = document.getElementById('guest-settings-voice-select');
+            if (guestSettingsVoiceSelect) {
+                try {
+                    guestSettingsVoiceSelect.value = localStorage.getItem(TTS_VOICE_KEY) || '';
+                } catch (e) { }
+                guestSettingsVoiceSelect.addEventListener('change', function () {
+                    var voice = guestSettingsVoiceSelect.value;
+                    try {
+                        if (voice) localStorage.setItem(TTS_VOICE_KEY, voice);
+                        else localStorage.removeItem(TTS_VOICE_KEY);
+                    } catch (e) { }
+                    if (settingsVoiceSelect) settingsVoiceSelect.value = voice;
+                    var label = guestSettingsVoiceSelect.options[guestSettingsVoiceSelect.selectedIndex].textContent;
                     showToastSafe('Spoken voice set to ' + label + '.');
                 });
             }

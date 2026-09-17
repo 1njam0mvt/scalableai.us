@@ -48,6 +48,7 @@ from app.services.task_manager import TaskManager
 from app.services.finance_service import FinanceService
 from app.services.auth_service import AuthService, AuthError
 from app.services.email_service import send_share_invite_email
+from app.services.settings_service import SettingsService
 from app.services.oauth_service import OAuthService, ProviderConfig
 from app.services.project_service import ProjectService, ProjectError
 from app.services.file_parser import extract_text as extract_file_text
@@ -57,6 +58,7 @@ from config import (
     EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHAT_HISTORY_TURNS,
     ASSISTANT_NAME, TTS_VOICE, TTS_RATE, BUG_REPORTS_DIR,
     PROJECT_MAX_FILE_BYTES, PROJECT_MAX_FILES, PROJECT_MAX_CONTEXT_CHARS_PER_FILE,
+    SETTINGS_DIR,
 )
 
 logging.basicConfig(
@@ -78,6 +80,7 @@ finance_service: FinanceService = None
 auth_service: AuthService = None
 project_service: ProjectService = None
 oauth_service: OAuthService = None
+settings_service: SettingsService = None
 
 
 def _build_oauth_service() -> OAuthService:
@@ -155,6 +158,7 @@ async def lifespan(app: FastAPI):
     global vector_store_service, groq_service, realtime_service, brain_service
     global task_executor, task_manager, vision_service, chat_service, finance_service, auth_service, project_service
     global oauth_service
+    global settings_service
     print_title()
     logger.info("=" * 60)
     logger.info("SCALABLE - Starting Up...")
@@ -212,6 +216,10 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing Auth service...")
         auth_service = AuthService()
         logger.info("Auth service initialized successfully")
+
+        logger.info("Initializing Settings service...")
+        settings_service = SettingsService(storage_dir=SETTINGS_DIR)
+        logger.info("Settings service initialized successfully")
 
         logger.info("Initializing OAuth service...")
         oauth_service = _build_oauth_service()
@@ -622,9 +630,31 @@ async def discover_topic(topic: str, username: str = Depends(require_auth)):
         logger.error("[API /discover/%s] Error: %s", topic_key, e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Could not load {topic} feed: {str(e)}")
 
+def _migrate_guest_settings_if_present(authorization: Optional[str], real_username: str) -> None:
+    """If the request carried a guest token (the person had guest settings
+    saved before creating an account or logging in), fold those settings
+    onto the real account and clear the guest-keyed copy. Silently does
+    nothing if there's no guest token, no settings service, or the guest
+    never saved anything — this is a best-effort convenience, never a
+    reason to fail the login/signup itself."""
+    if not settings_service:
+        return
+    token = get_bearer_token(authorization)
+    if not token:
+        return
+    guest_id = _verify_guest_token(token)
+    if not guest_id:
+        return
+    guest_key = f"{GUEST_USERNAME_PREFIX}{guest_id}"
+    try:
+        settings_service.migrate(guest_key, real_username)
+    except Exception as e:
+        logger.warning("[SETTINGS] Guest settings migration failed for %s -> %s: %s", guest_key, real_username, e)
+
+
 @app.post("/auth/signup", response_model=AuthResponse)
 
-async def signup(request: SignupRequest):
+async def signup(request: SignupRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
 
@@ -632,6 +662,7 @@ async def signup(request: SignupRequest):
         token = auth_service.signup(request.username, request.password, request.email, request.display_name)
         actual_username = auth_service.get_username_for_token(token)
         profile = auth_service.get_profile(actual_username)
+        _migrate_guest_settings_if_present(authorization, actual_username)
         return AuthResponse(
             token=token, username=profile["username"], email=profile["email"],
             display_name=profile["display_name"], created_at=profile.get("created_at"),
@@ -646,7 +677,7 @@ async def signup(request: SignupRequest):
 
 @app.post("/auth/login", response_model=AuthResponse)
 
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
 
@@ -656,6 +687,7 @@ async def login(request: LoginRequest):
         # session we just created instead of assuming request.username is it.
         actual_username = auth_service.get_username_for_token(token)
         profile = auth_service.get_profile(actual_username)
+        _migrate_guest_settings_if_present(authorization, actual_username)
         return AuthResponse(
             token=token, username=profile["username"], email=profile["email"],
             display_name=profile["display_name"], created_at=profile.get("created_at"),
@@ -687,6 +719,41 @@ async def me(username: str = Depends(require_auth)):
         raise HTTPException(status_code=404, detail="User not found")
 
     return profile
+
+
+class SettingsUpdateRequest(BaseModel):
+    display_name: Optional[str] = Field(default=None, max_length=80)
+    preferred_title: Optional[str] = Field(default=None, max_length=40)
+    language: Optional[str] = Field(default=None, max_length=40)
+    bio: Optional[str] = Field(default=None, max_length=2000)
+    theme: Optional[str] = Field(default=None, max_length=10)
+    improve_model_for_everyone: Optional[bool] = None
+    marketing_measurement: Optional[bool] = None
+    personalized_marketing: Optional[bool] = None
+
+
+@app.get("/settings")
+async def get_settings(username: str = Depends(require_auth_or_guest)):
+    """Works for real accounts and guests alike — require_auth_or_guest
+    returns either the real username or a synthetic __guest_<id>, and
+    SettingsService stores per that key either way (see its own docstring:
+    "a logged-in user's user_id, or a stable per-browser id for anonymous/
+    local use"). A guest's settings are folded into their real account
+    automatically the moment they log in or sign up — see migrate() calls
+    in the login/signup/oauth handlers."""
+    if not settings_service:
+        raise HTTPException(status_code=503, detail="Settings service not initialized")
+    return settings_service.get(username).to_dict()
+
+
+@app.patch("/settings")
+async def update_settings(request: SettingsUpdateRequest, username: str = Depends(require_auth_or_guest)):
+    if not settings_service:
+        raise HTTPException(status_code=503, detail="Settings service not initialized")
+    fields = request.model_dump(exclude_unset=True)
+    updated = settings_service.update(username, **fields)
+    return updated.to_dict()
+
 
 @app.post("/feedback/bug")
 

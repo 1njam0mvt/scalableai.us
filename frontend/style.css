@@ -269,6 +269,32 @@ body.guest-mode .guest-account-prompt {
     border: 1.5px solid var(--ink-0);
 }
 
+.guest-account-signup {
+    background: var(--ink-0);
+    color: var(--bg-0) !important;
+    border: none;
+}
+
+/* Sign up (desktop) and the circular Settings icon (mobile) occupy the
+   same slot next to "Log in" but are two separate elements, never one
+   swapped for the other — toggled purely by this breakpoint so desktop
+   always keeps its original "Sign up for free" and mobile always gets
+   the settings shortcut, with no shared state to accidentally leak
+   between them. */
+.guest-mobile-settings-btn {
+    display: none;
+}
+
+@media (max-width: 860px) {
+    .guest-desktop-signup {
+        display: none !important;
+    }
+
+    .guest-mobile-settings-btn {
+        display: flex;
+    }
+}
+
 /* Circular settings button next to Log in — same idea as the header's
    own gear icon, sized and shaped to match rather than a second full-
    width pill sitting beside "Log in". */
@@ -294,6 +320,42 @@ body.guest-mode .guest-account-prompt {
 
 .guest-account-prompt a:hover {
     filter: brightness(1.08);
+}
+
+/* Guest sidebar Settings — deliberately its own panel, not the header's
+   settings-panel: separate id, separate open/close state, separate
+   toggle set (data controls instead of the auto-open/thinking-sound/
+   voice-interrupt trio). Mobile-only in practice since its trigger
+   button only renders under 860px, so this only needs the centered-
+   sheet treatment, not a desktop dropdown-anchored variant. */
+.guest-sidebar-settings-wrap {
+    position: relative;
+}
+
+.guest-sidebar-settings-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 80;
+    width: min(340px, calc(100vw - 32px));
+    max-height: min(80vh, 80dvh);
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    display: flex;
+    flex-direction: column;
+    transform: translate(-50%, -48%) scale(0.98);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform var(--fast) var(--ease), opacity var(--fast) var(--ease);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+.guest-sidebar-settings-panel.open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* Full-width Help Center / Bug report rows shown above Log in for guests

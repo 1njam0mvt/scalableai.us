@@ -218,6 +218,8 @@ const speechWidget = $('speech-widget');
 const speechWidgetText = $('speech-widget-text');
 const settingsBtn = $('settings-btn');
 const guestSidebarSettingsBtn = $('guest-sidebar-settings-btn');
+const guestSidebarSettingsPanel = $('guest-sidebar-settings-panel');
+const guestSidebarSettingsClose = $('guest-sidebar-settings-close');
 const guestMobileHelpBtn = $('guest-mobile-help-btn');
 const guestMobileBugBtn = $('guest-mobile-bug-btn');
 const camBtn = $('cam-btn');
@@ -1004,6 +1006,14 @@ const MOBILE_PANEL_BREAKPOINT = 700;
 
     function closeMobileSidebar() {
         sidebar.classList.remove('mobile-open');
+        // The guest sidebar settings panel only makes sense while the
+        // drawer itself is open — close it alongside so it never lingers
+        // visible (or, worse, stuck in the DOM's open state) after the
+        // drawer that contains its trigger button has gone away.
+        const guestPanel = document.getElementById('guest-sidebar-settings-panel');
+        if (guestPanel) guestPanel.classList.remove('open');
+        const guestBtn = document.getElementById('guest-sidebar-settings-btn');
+        if (guestBtn) guestBtn.setAttribute('aria-expanded', 'false');
     }
 
     function toggleMobileSidebar() {
@@ -1090,6 +1100,36 @@ function wireShareAccessDropdown(toggleBtn, dropdownEl, onPick) {
             closeShareAccessDropdowns();
         });
     });
+}
+
+async function loadGuestSidebarSettings() {
+    const improveEl = document.getElementById('guest-toggle-improve-model');
+    const measureEl = document.getElementById('guest-toggle-marketing-measurement');
+    const personalizeEl = document.getElementById('guest-toggle-personalized-marketing');
+    try {
+        const res = await authFetch(`${API}/settings`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (improveEl) improveEl.checked = data.improve_model_for_everyone !== false;
+        if (measureEl) measureEl.checked = data.marketing_measurement !== false;
+        if (personalizeEl) personalizeEl.checked = data.personalized_marketing !== false;
+    } catch (err) {
+        // Best-effort — the toggles keep their default (checked) state
+        // and still work to save changes even if the initial load fails.
+    }
+}
+
+async function saveGuestSidebarSetting(field, value) {
+    try {
+        const res = await authFetch(`${API}/settings`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: value }),
+        });
+        if (!res.ok) showToast('Could not save that setting — check your connection.');
+    } catch (err) {
+        showToast('Could not save that setting — check your connection.');
+    }
 }
 
 async function loadShareState() {
@@ -1842,22 +1882,38 @@ function bindEvents() {
             if (!willOpen) restorePanelHome(settingsPanel);
         });
     }
-    if (guestSidebarSettingsBtn && settingsPanel) {
-        // Mobile-only entry point (see .guest-account-prompt CSS — this
-        // whole row only renders for guests on narrow screens): opens the
-        // same Settings panel as the header's gear icon, since guests on
-        // mobile don't otherwise have that button visible to them
-        // (.mobile-guest-hide) — this replaces "Sign up" for exactly that
-        // reason, without adding a second, separate settings UI.
+    if (guestSidebarSettingsBtn && guestSidebarSettingsPanel) {
+        // Its own panel entirely — separate element, separate open state,
+        // separate content from the header's settings-panel (which this
+        // used to incorrectly reuse). Mobile-only in practice: the trigger
+        // button itself only renders under 860px (see CSS).
         guestSidebarSettingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const willOpen = !settingsPanel.classList.contains('open');
-            if (willOpen) relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
-            settingsPanel.classList.toggle('open', willOpen);
-            updatePanelOverlay();
-            if (!willOpen) restorePanelHome(settingsPanel);
+            const willOpen = !guestSidebarSettingsPanel.classList.contains('open');
+            guestSidebarSettingsPanel.classList.toggle('open', willOpen);
+            guestSidebarSettingsBtn.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) loadGuestSidebarSettings();
         });
     }
+    if (guestSidebarSettingsClose && guestSidebarSettingsPanel) {
+        guestSidebarSettingsClose.addEventListener('click', () => {
+            guestSidebarSettingsPanel.classList.remove('open');
+            if (guestSidebarSettingsBtn) guestSidebarSettingsBtn.setAttribute('aria-expanded', 'false');
+        });
+    }
+    const guestDataControlToggles = [
+        ['guest-toggle-improve-model', 'improve_model_for_everyone'],
+        ['guest-toggle-marketing-measurement', 'marketing_measurement'],
+        ['guest-toggle-personalized-marketing', 'personalized_marketing'],
+    ];
+    guestDataControlToggles.forEach(([elementId, fieldName]) => {
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.addEventListener('change', () => {
+                saveGuestSidebarSetting(fieldName, el.checked);
+            });
+        }
+    });
     if (guestMobileHelpBtn) {
         guestMobileHelpBtn.addEventListener('click', () => {
             window.open('/faq.html', '_blank', 'noopener');

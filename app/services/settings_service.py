@@ -40,6 +40,9 @@ class UserSettings:
     language: str = "English"
     bio: str = ""                   # free-text personalization notes, injected into system prompt
     theme: str = "dark"             # mirrors the frontend's own local toggle, kept in sync
+    improve_model_for_everyone: bool = True
+    marketing_measurement: bool = True
+    personalized_marketing: bool = True
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -101,6 +104,30 @@ class SettingsService:
                 logger.error("[SETTINGS] Failed to persist settings for %s: %s", key, e)
 
             return settings
+
+    def migrate(self, from_key: str, to_key: str) -> Optional[UserSettings]:
+        """Copies a guest's settings onto their real account the moment they
+        log in or sign up, then removes the guest-keyed file — the guest
+        identity is throwaway once it's been folded into a real account, so
+        nothing is left behind under the old key. Returns None (no-op) if
+        the guest never actually had a settings file, which is the common
+        case for a guest who never touched Settings."""
+        guest_path = self._path(from_key)
+        if not guest_path.exists():
+            return None
+        # get()/update() each take self._lock internally (it isn't
+        # reentrant), so this stays outside any lock of its own and lets
+        # those calls do their own locking — calling one while already
+        # holding the lock here would deadlock.
+        guest_settings = self.get(from_key)
+        account_settings = self.update(to_key, **guest_settings.to_dict())
+        with self._lock:
+            try:
+                guest_path.unlink()
+            except Exception as e:
+                logger.warning("[SETTINGS] Could not remove guest settings file for %s: %s", from_key, e)
+            self._cache.pop(from_key, None)
+        return account_settings
 
     def build_prompt_addendum(self, key: str) -> str:
         """What actually gets injected into the system prompt for this account."""
