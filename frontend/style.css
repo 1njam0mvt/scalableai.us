@@ -304,6 +304,15 @@ body.guest-mode .guest-account-prompt {
         grid-template-columns: auto auto;
         justify-content: space-between;
     }
+
+    /* auto-sized columns above size "Log in" to its own content, which
+       at this row's tighter mobile width read as squeezed — this floor
+       keeps it at a comfortable button width without stretching it to
+       fill the row the way 1fr did. min-width (not a fixed width) so it
+       can still grow if a translation ever needs more room. */
+    .guest-account-login {
+        min-width: 130px;
+    }
 }
 
 /* Circular settings button next to Log in — same idea as the header's
@@ -2732,7 +2741,6 @@ body.guest-mode .account-menu-wrap {
 }
 
 @media (max-width: 860px) {
-
     /* Sidebar is fully off-canvas by default on mobile — no permanently
        visible icon rail, logged in or out. It only appears as a complete
        overlay when opened (via the logo badge, or the toggle button),
