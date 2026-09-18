@@ -290,6 +290,20 @@ body.guest-mode .guest-account-prompt {
     .guest-mobile-settings-btn {
         display: flex;
     }
+
+    /* Mobile's second slot is the compact circular settings button, not
+       a same-width "Sign up" pill. 1fr 1fr stretched it to half the row
+       width; 1fr auto then stretched "Log in" itself to fill all the
+       remaining space instead — both wrong for the same reason: neither
+       item here should stretch at all. auto auto sizes each column to
+       its own content, and justify-content: space-between pushes the
+       pair to the row's two edges with empty space between, matching
+       the desktop pair's compact look instead of an artificially
+       widened button. */
+    body.guest-mode .guest-account-prompt {
+        grid-template-columns: auto auto;
+        justify-content: space-between;
+    }
 }
 
 /* Circular settings button next to Log in — same idea as the header's
