@@ -332,6 +332,17 @@ body.guest-mode .guest-account-prompt {
     position: relative;
 }
 
+/* Hide the whole wrapper on desktop, not just the button inside it —
+   .guest-account-prompt is a 2-column grid (Log in + one more item), and
+   leaving this wrapper's own box in the layout left an empty gear-shaped
+   gap wrapping onto a second row underneath Log in/Sign up, even though
+   .guest-mobile-settings-btn itself was correctly hidden. */
+@media (min-width: 861px) {
+    .guest-sidebar-settings-wrap {
+        display: none;
+    }
+}
+
 .guest-sidebar-settings-panel {
     position: fixed;
     top: 50%;
