@@ -230,10 +230,6 @@ body:not(.chat-mode) .share-menu-wrap {
 .guest-account-prompt {
     display: none;
     gap: 8px;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
-    background: var(--bg-1);
 }
 
 body.guest-mode .guest-account-prompt {
