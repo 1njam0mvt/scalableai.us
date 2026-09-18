@@ -234,7 +234,7 @@ body:not(.chat-mode) .share-menu-wrap {
 
 body.guest-mode .guest-account-prompt {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr 1fr;
     align-items: center;
 }
 
@@ -250,9 +250,10 @@ body.guest-mode .guest-account-prompt {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 34px;
-    border-radius: var(--r-sm);
-    font-size: 13px;
+    min-height: 38px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font-size: 13.5px;
     font-weight: 600;
     text-decoration: none;
     font-family: inherit;
