@@ -1011,7 +1011,10 @@ const MOBILE_PANEL_BREAKPOINT = 700;
         // visible (or, worse, stuck in the DOM's open state) after the
         // drawer that contains its trigger button has gone away.
         const guestPanel = document.getElementById('guest-sidebar-settings-panel');
-        if (guestPanel) guestPanel.classList.remove('open');
+        if (guestPanel) {
+            guestPanel.classList.remove('open');
+            restorePanelHome(guestPanel);
+        }
         const guestBtn = document.getElementById('guest-sidebar-settings-btn');
         if (guestBtn) guestBtn.setAttribute('aria-expanded', 'false');
     }
@@ -1711,6 +1714,10 @@ function bindEvents() {
         if (settingsPanel && settingsPanel.classList.contains('open')) {
             relocatePanelForViewport(settingsPanel, 'settings-menu-wrap');
         }
+        const guestPanel = document.getElementById('guest-sidebar-settings-panel');
+        if (guestPanel && guestPanel.classList.contains('open')) {
+            relocatePanelForViewport(guestPanel, 'guest-sidebar-settings-wrap');
+        }
     });
     if (sendBtn) sendBtn.addEventListener('click', () => { if (!isStreaming) sendMessage(); });
     if (messageInput) messageInput.addEventListener('keydown', e => {
@@ -1890,14 +1897,25 @@ function bindEvents() {
         guestSidebarSettingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const willOpen = !guestSidebarSettingsPanel.classList.contains('open');
+            // Same fix as the Share/Settings panels: .sidebar carries a
+            // `transform` on mobile (for the slide-in drawer animation),
+            // and per the CSS spec a transformed ancestor becomes the
+            // containing block for any `position: fixed` descendant — so
+            // this panel's "center on the viewport" positioning was
+            // actually centering inside the sidebar's own narrow box
+            // instead, squeezing it into the drawer. Relocating it to
+            // <body> while open sidesteps that entirely.
+            if (willOpen) relocatePanelForViewport(guestSidebarSettingsPanel, 'guest-sidebar-settings-wrap');
             guestSidebarSettingsPanel.classList.toggle('open', willOpen);
             guestSidebarSettingsBtn.setAttribute('aria-expanded', String(willOpen));
             if (willOpen) loadGuestSidebarSettings();
+            else restorePanelHome(guestSidebarSettingsPanel);
         });
     }
     if (guestSidebarSettingsClose && guestSidebarSettingsPanel) {
         guestSidebarSettingsClose.addEventListener('click', () => {
             guestSidebarSettingsPanel.classList.remove('open');
+            restorePanelHome(guestSidebarSettingsPanel);
             if (guestSidebarSettingsBtn) guestSidebarSettingsBtn.setAttribute('aria-expanded', 'false');
         });
     }
