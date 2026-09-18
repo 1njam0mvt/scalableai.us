@@ -290,6 +290,16 @@ body.guest-mode .guest-account-prompt {
     .guest-mobile-settings-btn {
         display: flex;
     }
+
+    /* Mobile's second slot is the compact circular settings button, not
+       a same-width "Sign up" pill — 1fr 1fr (correct for the desktop
+       Log in/Sign up pair) was stretching that slot to half the row,
+       leaving the small gear sitting centered close to "Log in" instead
+       of pinned to the right edge. 1fr auto keeps "Log in" filling the
+       remaining space while the gear only takes the width it needs. */
+    body.guest-mode .guest-account-prompt {
+        grid-template-columns: 1fr auto;
+    }
 }
 
 /* Circular settings button next to Log in — same idea as the header's
