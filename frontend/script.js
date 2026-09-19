@@ -2996,6 +2996,36 @@ function applyAuthUserToUI(user) {
         const source = user.display_name || user.username || '?';
         avatarEl.textContent = source.charAt(0).toUpperCase() || '?';
     }
+
+    // Real account identity for the sidebar row and the account-menu
+    // header — these used to come from a separate, browser-local
+    // "profile nickname" system (localStorage only, not tied to who's
+    // actually logged in), which is why switching accounts never
+    // updated them and a fresh browser fell back to a hardcoded name.
+    // Falls back to the email's local part, then the bare username, if
+    // the account has no display name set (e.g. a brand-new signup or
+    // an OAuth provider that didn't supply one).
+    const displayName = user.display_name
+        || (user.email && user.email.includes('@') ? user.email.split('@')[0] : null)
+        || user.username
+        || 'New User';
+    const nameSpots = [
+        document.getElementById('sidebar-account-name'),
+        document.getElementById('account-menu-name'),
+    ];
+    nameSpots.forEach(function (el) { if (el) el.textContent = displayName; });
+
+    const identityAvatarSpots = [
+        document.getElementById('sidebar-account-avatar'),
+        document.getElementById('account-menu-avatar'),
+    ];
+    const initial = displayName.trim().charAt(0).toUpperCase() || '?';
+    identityAvatarSpots.forEach(function (el) {
+        if (!el) return;
+        el.textContent = initial;
+        el.style.backgroundImage = '';
+        el.classList.remove('has-photo');
+    });
 }
 window.applyAuthUserToUI = applyAuthUserToUI;
 
