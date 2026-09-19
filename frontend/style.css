@@ -225,6 +225,25 @@ body:not(.chat-mode) .share-menu-wrap {
     body.guest-mode .mobile-guest-hide {
         display: none !important;
     }
+
+    /* Every chat message already has its own per-message copy button
+       (see .msg-copy-btn), so the header's clipboard icon is redundant
+       once space is tight on mobile — hidden here regardless of
+       chat-mode, unlike Share which still only shows in chat-mode via
+       the body:not(.chat-mode) rule elsewhere. */
+    .clipboard-copy-btn {
+        display: none !important;
+    }
+
+    /* Discover was hidden starting at 420px; on mobile widths above that
+       (700px down to 421px) it was disappearing even though there's
+       still room for it once the clipboard icon above is removed from
+       the row. Keeping it makes Theme/Lang/Share/Settings/Discover (chat
+       page) and Theme/Lang/Settings/Discover (home page) the visible
+       mobile sets, matching the desktop header's full feature set. */
+    .explore-toggle {
+        display: flex !important;
+    }
 }
 
 .guest-account-prompt {
@@ -5449,6 +5468,26 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
         gap: 8px;
     }
 
+    /* With Discover restored alongside Theme/Lang/Share/Settings, the
+       chat-page header can carry 5 icon buttons at once — shrinking each
+       slightly (36px -> 32px) and tightening the gap between them keeps
+       the full set fitting cleanly next to the title and language
+       dropdown on a typical ~360-390px phone instead of relying on
+       overflow/wrapping to save the layout. */
+    .header-right {
+        gap: 6px;
+    }
+
+    .header-right .btn-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .header-right .btn-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+
     .mode-btn-text {
         display: none;
     }
@@ -5561,10 +5600,6 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 
     .status-badge .status-dot {
         margin: 0;
-    }
-
-    .explore-toggle {
-        display: none;
     }
 
     .logo {
