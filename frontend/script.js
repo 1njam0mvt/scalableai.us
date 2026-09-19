@@ -3002,10 +3002,19 @@ function applyAuthUserToUI(user) {
     // "profile nickname" system (localStorage only, not tied to who's
     // actually logged in), which is why switching accounts never
     // updated them and a fresh browser fell back to a hardcoded name.
-    // Falls back to the email's local part, then the bare username, if
-    // the account has no display name set (e.g. a brand-new signup or
-    // an OAuth provider that didn't supply one).
-    const displayName = user.display_name
+    // A custom name the user explicitly saved in Profile settings still
+    // takes precedence over the auth-provider default, same as before —
+    // only the *fallback*, unset case now comes from the real account
+    // instead of a hardcoded string.
+    let customName = '';
+    try {
+        const raw = localStorage.getItem('scalable_profile');
+        const parsed = raw ? JSON.parse(raw) : null;
+        customName = (parsed && parsed.name) ? parsed.name.trim() : '';
+    } catch (e) { /* ignore — falls through to the account-derived name below */ }
+
+    const displayName = customName
+        || user.display_name
         || (user.email && user.email.includes('@') ? user.email.split('@')[0] : null)
         || user.username
         || 'New User';
