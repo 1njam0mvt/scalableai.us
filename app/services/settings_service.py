@@ -40,6 +40,7 @@ class UserSettings:
     language: str = "English"
     bio: str = ""                   # free-text personalization notes, injected into system prompt
     theme: str = "dark"             # mirrors the frontend's own local toggle, kept in sync
+    photo_url: str = ""             # served path to their uploaded avatar, e.g. /profile-photos/<username>.jpg
     improve_model_for_everyone: bool = True
     marketing_measurement: bool = True
     personalized_marketing: bool = True
@@ -147,5 +148,3 @@ class SettingsService:
             parts.append(f"Personal context about the user: {settings.bio}")
 
         return " ".join(parts)
-
-    
