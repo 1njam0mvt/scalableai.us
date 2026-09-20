@@ -19,6 +19,8 @@ PROJECTS_DATA_DIR = BASE_DIR / "database" / "projects"
 PROJECT_FILES_DIR = BASE_DIR / "database" / "project_files"
 USER_MEMORY_DIR = BASE_DIR / "database" / "user_memory"
 SETTINGS_DIR = BASE_DIR / "database" / "settings"
+PROFILE_PHOTOS_DIR = BASE_DIR / "database" / "profile_photos"
+PROFILE_PHOTO_MAX_BYTES = 3 * 1024 * 1024  # 3MB — an avatar, not a document
 
 LEARNING_DATA_DIR.mkdir(parents=True, exist_ok=True)
 CHATS_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,6 +33,7 @@ PROJECTS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
 USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Cap on a single user's memory file, to keep prompts bounded and prevent
 # unbounded disk growth per user.
