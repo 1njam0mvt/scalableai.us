@@ -19,7 +19,6 @@ PROJECTS_DATA_DIR = BASE_DIR / "database" / "projects"
 PROJECT_FILES_DIR = BASE_DIR / "database" / "project_files"
 USER_MEMORY_DIR = BASE_DIR / "database" / "user_memory"
 SETTINGS_DIR = BASE_DIR / "database" / "settings"
-PROFILE_PHOTOS_DIR = BASE_DIR / "database" / "profile_photos"
 PROFILE_PHOTO_MAX_BYTES = 3 * 1024 * 1024  # 3MB — an avatar, not a document
 
 LEARNING_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -33,7 +32,6 @@ PROJECTS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
 USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-PROFILE_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Cap on a single user's memory file, to keep prompts bounded and prevent
 # unbounded disk growth per user.
@@ -75,6 +73,13 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 # email step is just skipped and the link has to be shared manually.
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "ScalableAI <onboarding@resend.dev>")
+# Profile photo storage — Render's local disk is ephemeral (wiped on every
+# restart/redeploy), so photos live on Cloudinary instead. If these are
+# empty, photo upload/removal endpoints return a clear error rather than
+# silently writing to disk again.
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
 FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 GROQ_BRAIN_MODEL = os.getenv("GROQ_BRAIN_MODEL", "openai/gpt-oss-20b")
