@@ -24,4 +24,5 @@ google-auth>=2.28.0  # Google One Tap id_token verification
 pypdf>=4.0.0
 python-docx>=1.1.0
 python-multipart>=0.0.9
+cloudinary>=1.40.0  # profile photo storage — Render's local disk is ephemeral, wiped on every restart/redeploy
 
