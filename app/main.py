@@ -58,7 +58,7 @@ from config import (
     EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHAT_HISTORY_TURNS,
     ASSISTANT_NAME, TTS_VOICE, TTS_RATE, BUG_REPORTS_DIR,
     PROJECT_MAX_FILE_BYTES, PROJECT_MAX_FILES, PROJECT_MAX_CONTEXT_CHARS_PER_FILE,
-    SETTINGS_DIR,
+    SETTINGS_DIR, PROFILE_PHOTOS_DIR, PROFILE_PHOTO_MAX_BYTES,
 )
 
 logging.basicConfig(
@@ -727,6 +727,7 @@ class SettingsUpdateRequest(BaseModel):
     language: Optional[str] = Field(default=None, max_length=40)
     bio: Optional[str] = Field(default=None, max_length=2000)
     theme: Optional[str] = Field(default=None, max_length=10)
+    photo_url: Optional[str] = Field(default=None, max_length=300)
     improve_model_for_everyone: Optional[bool] = None
     marketing_measurement: Optional[bool] = None
     personalized_marketing: Optional[bool] = None
@@ -753,6 +754,73 @@ async def update_settings(request: SettingsUpdateRequest, username: str = Depend
     fields = request.model_dump(exclude_unset=True)
     updated = settings_service.update(username, **fields)
     return updated.to_dict()
+
+
+_PROFILE_PHOTO_EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+
+
+@app.post("/settings/photo")
+async def upload_profile_photo(file: UploadFile = File(...), username: str = Depends(require_auth_or_guest)):
+    """Real server-side storage for the profile photo, replacing the old
+    base64-in-localStorage approach — that never left the one browser it
+    was set in, which is exactly why it didn't show up on other devices
+    and could silently vanish if that browser ever cleared storage.
+    Saved to a per-user filename (old photo of theirs, if any, is
+    overwritten) and served back via the /profile-photos static mount."""
+    if not settings_service:
+        raise HTTPException(status_code=503, detail="Settings service not initialized")
+
+    content_type = (file.content_type or "").lower()
+    ext = _PROFILE_PHOTO_EXTENSIONS.get(content_type)
+    if not ext:
+        raise HTTPException(status_code=400, detail="Please upload a JPEG, PNG, WebP, or GIF image.")
+
+    raw_bytes = await file.read()
+    if len(raw_bytes) == 0:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+    if len(raw_bytes) > PROFILE_PHOTO_MAX_BYTES:
+        max_mb = PROFILE_PHOTO_MAX_BYTES / (1024 * 1024)
+        raise HTTPException(status_code=413, detail=f"Image is too large. Maximum size is {max_mb:.0f}MB.")
+
+    # Safe, predictable filename derived only from the authenticated
+    # username (never the client-supplied filename) — one file per user,
+    # so re-uploading replaces rather than accumulating orphaned photos.
+    safe_username = re.sub(r"[^a-zA-Z0-9_-]", "_", username)
+    for existing_ext in _PROFILE_PHOTO_EXTENSIONS.values():
+        old_path = PROFILE_PHOTOS_DIR / f"{safe_username}{existing_ext}"
+        if old_path.exists() and old_path.suffix != ext:
+            try:
+                old_path.unlink()
+            except Exception:
+                pass
+    filepath = PROFILE_PHOTOS_DIR / f"{safe_username}{ext}"
+    try:
+        filepath.write_bytes(raw_bytes)
+    except Exception as e:
+        logger.error("[API /settings/photo] Could not save photo for %s: %s", username, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not save the photo.")
+
+    # Cache-bust so a re-uploaded photo (same filename) actually refreshes
+    # in the browser instead of showing the old cached image.
+    photo_url = f"/profile-photos/{safe_username}{ext}?v={int(time.time())}"
+    updated = settings_service.update(username, photo_url=photo_url)
+    return {"photo_url": updated.photo_url}
+
+
+@app.delete("/settings/photo")
+async def delete_profile_photo(username: str = Depends(require_auth_or_guest)):
+    if not settings_service:
+        raise HTTPException(status_code=503, detail="Settings service not initialized")
+    safe_username = re.sub(r"[^a-zA-Z0-9_-]", "_", username)
+    for existing_ext in _PROFILE_PHOTO_EXTENSIONS.values():
+        old_path = PROFILE_PHOTOS_DIR / f"{safe_username}{existing_ext}"
+        if old_path.exists():
+            try:
+                old_path.unlink()
+            except Exception:
+                pass
+    updated = settings_service.update(username, photo_url="")
+    return {"photo_url": updated.photo_url}
 
 
 @app.post("/feedback/bug")
@@ -1990,6 +2058,8 @@ if _i18n_assets_dir.exists():
     app.mount("/i18n", StaticFiles(directory=str(_i18n_assets_dir)), name="i18n_assets")
 else:
     logger.warning("i18n assets dir not found at %s — language switcher will not load", _i18n_assets_dir)
+
+app.mount("/profile-photos", StaticFiles(directory=str(PROFILE_PHOTOS_DIR)), name="profile_photos")
 
 if _frontend_dir.exists():
     app.mount("/app", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
