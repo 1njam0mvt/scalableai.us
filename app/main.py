@@ -16,6 +16,8 @@ import base64
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import edge_tts
+import cloudinary
+import cloudinary.uploader
 from typing import Optional
 from pydantic import BaseModel, Field
 import secrets
@@ -58,7 +60,8 @@ from config import (
     EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHAT_HISTORY_TURNS,
     ASSISTANT_NAME, TTS_VOICE, TTS_RATE, BUG_REPORTS_DIR,
     PROJECT_MAX_FILE_BYTES, PROJECT_MAX_FILES, PROJECT_MAX_CONTEXT_CHARS_PER_FILE,
-    SETTINGS_DIR, PROFILE_PHOTOS_DIR, PROFILE_PHOTO_MAX_BYTES,
+    SETTINGS_DIR, PROFILE_PHOTO_MAX_BYTES,
+    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
 )
 
 logging.basicConfig(
@@ -68,6 +71,21 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("SCALABLE")
+
+_cloudinary_configured = bool(CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET)
+if _cloudinary_configured:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
+else:
+    logger.warning(
+        "Cloudinary is not configured (CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET) — "
+        "profile photo upload/removal will return 503 until these are set."
+    )
+
 vector_store_service: VectorStoreService = None
 groq_service: GroqService = None
 realtime_service: RealtimeGroqService = None
@@ -756,23 +774,26 @@ async def update_settings(request: SettingsUpdateRequest, username: str = Depend
     return updated.to_dict()
 
 
-_PROFILE_PHOTO_EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+_PROFILE_PHOTO_EXTENSIONS = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_profile_photo_pool = ThreadPoolExecutor(max_workers=2)
 
 
 @app.post("/settings/photo")
 async def upload_profile_photo(file: UploadFile = File(...), username: str = Depends(require_auth_or_guest)):
-    """Real server-side storage for the profile photo, replacing the old
-    base64-in-localStorage approach — that never left the one browser it
-    was set in, which is exactly why it didn't show up on other devices
-    and could silently vanish if that browser ever cleared storage.
-    Saved to a per-user filename (old photo of theirs, if any, is
-    overwritten) and served back via the /profile-photos static mount."""
+    """Profile photo storage, backed by Cloudinary rather than the local
+    disk — Render's disk is ephemeral and gets wiped on every restart or
+    redeploy, which silently deleted every uploaded photo (and, separately,
+    the session-token file — see auth_service's own persistence notes).
+    Cloudinary's own upload call is blocking, so it runs in a thread pool
+    rather than tying up the event loop, same pattern used elsewhere in
+    this file for other blocking work (finance, TTS, project uploads)."""
     if not settings_service:
         raise HTTPException(status_code=503, detail="Settings service not initialized")
+    if not _cloudinary_configured:
+        raise HTTPException(status_code=503, detail="Photo storage is not configured on this server yet.")
 
     content_type = (file.content_type or "").lower()
-    ext = _PROFILE_PHOTO_EXTENSIONS.get(content_type)
-    if not ext:
+    if content_type not in _PROFILE_PHOTO_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Please upload a JPEG, PNG, WebP, or GIF image.")
 
     raw_bytes = await file.read()
@@ -782,27 +803,33 @@ async def upload_profile_photo(file: UploadFile = File(...), username: str = Dep
         max_mb = PROFILE_PHOTO_MAX_BYTES / (1024 * 1024)
         raise HTTPException(status_code=413, detail=f"Image is too large. Maximum size is {max_mb:.0f}MB.")
 
-    # Safe, predictable filename derived only from the authenticated
-    # username (never the client-supplied filename) — one file per user,
-    # so re-uploading replaces rather than accumulating orphaned photos.
+    # public_id derived only from the authenticated username (never the
+    # client-supplied filename) — one image per user; re-uploading with
+    # the same public_id overwrites it rather than accumulating orphans.
     safe_username = re.sub(r"[^a-zA-Z0-9_-]", "_", username)
-    for existing_ext in _PROFILE_PHOTO_EXTENSIONS.values():
-        old_path = PROFILE_PHOTOS_DIR / f"{safe_username}{existing_ext}"
-        if old_path.exists() and old_path.suffix != ext:
-            try:
-                old_path.unlink()
-            except Exception:
-                pass
-    filepath = PROFILE_PHOTOS_DIR / f"{safe_username}{ext}"
-    try:
-        filepath.write_bytes(raw_bytes)
-    except Exception as e:
-        logger.error("[API /settings/photo] Could not save photo for %s: %s", username, e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Could not save the photo.")
+    public_id = f"profile_photos/{safe_username}"
 
-    # Cache-bust so a re-uploaded photo (same filename) actually refreshes
-    # in the browser instead of showing the old cached image.
-    photo_url = f"/profile-photos/{safe_username}{ext}?v={int(time.time())}"
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            _profile_photo_pool,
+            lambda: cloudinary.uploader.upload(
+                raw_bytes,
+                public_id=public_id,
+                overwrite=True,
+                invalidate=True,  # bust Cloudinary's own CDN cache too, not just the browser's
+                resource_type="image",
+                transformation=[{"width": 512, "height": 512, "crop": "fill", "gravity": "face"}],
+            ),
+        )
+    except Exception as e:
+        logger.error("[API /settings/photo] Cloudinary upload failed for %s: %s", username, e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not upload the photo — please try again.")
+
+    photo_url = result.get("secure_url")
+    if not photo_url:
+        raise HTTPException(status_code=502, detail="Photo upload did not return a usable URL.")
+
     updated = settings_service.update(username, photo_url=photo_url)
     return {"photo_url": updated.photo_url}
 
@@ -811,14 +838,17 @@ async def upload_profile_photo(file: UploadFile = File(...), username: str = Dep
 async def delete_profile_photo(username: str = Depends(require_auth_or_guest)):
     if not settings_service:
         raise HTTPException(status_code=503, detail="Settings service not initialized")
-    safe_username = re.sub(r"[^a-zA-Z0-9_-]", "_", username)
-    for existing_ext in _PROFILE_PHOTO_EXTENSIONS.values():
-        old_path = PROFILE_PHOTOS_DIR / f"{safe_username}{existing_ext}"
-        if old_path.exists():
-            try:
-                old_path.unlink()
-            except Exception:
-                pass
+    if _cloudinary_configured:
+        safe_username = re.sub(r"[^a-zA-Z0-9_-]", "_", username)
+        public_id = f"profile_photos/{safe_username}"
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(_profile_photo_pool, lambda: cloudinary.uploader.destroy(public_id))
+        except Exception as e:
+            # Not fatal — clearing photo_url below still removes the
+            # photo from the app even if the Cloudinary-side delete
+            # itself failed (e.g. transient network issue).
+            logger.warning("[API /settings/photo DELETE] Cloudinary destroy failed for %s: %s", username, e)
     updated = settings_service.update(username, photo_url="")
     return {"photo_url": updated.photo_url}
 
@@ -2058,8 +2088,6 @@ if _i18n_assets_dir.exists():
     app.mount("/i18n", StaticFiles(directory=str(_i18n_assets_dir)), name="i18n_assets")
 else:
     logger.warning("i18n assets dir not found at %s — language switcher will not load", _i18n_assets_dir)
-
-app.mount("/profile-photos", StaticFiles(directory=str(PROFILE_PHOTOS_DIR)), name="profile_photos")
 
 if _frontend_dir.exists():
     app.mount("/app", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
