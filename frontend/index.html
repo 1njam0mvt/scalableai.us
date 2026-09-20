@@ -2255,24 +2255,84 @@
             });
             if (profileSaveBtn) {
                 profileSaveBtn.addEventListener('click', function () {
+                    profileSaveBtn.disabled = true;
                     var name = (profileNameInput && profileNameInput.value.trim()) || '';
+                    var photoRemoved = (currentProfile.photo && !pendingPhoto);
+                    var photoChanged = pendingPhoto && pendingPhoto !== currentProfile.photo;
+
+                    // colorId/photo (the base64 preview) still get written to
+                    // localStorage so the color-swatch picker keeps its pick
+                    // remembered locally — but the identity that actually
+                    // shows elsewhere in the app (sidebar, account menu) now
+                    // comes from the server via saveProfileToServer below,
+                    // not from this local copy.
                     currentProfile = { name: name, colorId: pendingColorId, photo: pendingPhoto };
-                    var saved = saveProfile(currentProfile);
+                    saveProfile(currentProfile);
                     applyProfile(currentProfile);
-                    // Re-render the sidebar/account-menu name immediately so
-                    // a saved custom name shows right away instead of only
-                    // taking effect after the next login or reload — this
-                    // reads the localStorage value we just wrote, via the
-                    // same precedence applyAuthUserToUI already applies on
-                    // login/page-load.
+
+                    saveProfileToServer(name, photoChanged ? pendingPhoto : null, photoRemoved)
+                        .then(function () {
+                            showToastSafe('Profile updated.');
+                        })
+                        .catch(function (err) {
+                            showToastSafe((err && err.message) || 'Profile saved locally, but syncing to your account failed.');
+                        })
+                        .finally(function () {
+                            profileSaveBtn.disabled = false;
+                            closeProfileModal();
+                        });
+                });
+            }
+
+            // Pushes the real, permanent update: display name via PATCH
+            // /settings, photo via POST /settings/photo (as an actual file,
+            // not base64 text) — replacing the old approach where both
+            // just sat in this browser's localStorage, never reached the
+            // backend, never synced to another device, and could vanish if
+            // this browser's storage was ever cleared.
+            function saveProfileToServer(name, newPhotoDataUrl, removePhoto) {
+                var doFetch = (typeof window.authFetch === 'function') ? window.authFetch : fetch;
+
+                var steps = [];
+                steps.push(
+                    doFetch('/settings', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ display_name: name }),
+                    }).then(function (res) {
+                        if (!res.ok) throw new Error('Could not save your name to your account.');
+                    })
+                );
+
+                if (newPhotoDataUrl) {
+                    steps.push(
+                        fetch(newPhotoDataUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+                            var formData = new FormData();
+                            formData.append('file', blob, 'avatar.jpg');
+                            return doFetch('/settings/photo', { method: 'POST', body: formData });
+                        }).then(function (res) {
+                            if (!res.ok) throw new Error('Could not upload your photo.');
+                        })
+                    );
+                } else if (removePhoto) {
+                    steps.push(
+                        doFetch('/settings/photo', { method: 'DELETE' }).then(function (res) {
+                            if (!res.ok) throw new Error('Could not remove your photo.');
+                        })
+                    );
+                }
+
+                return Promise.all(steps).then(function () {
+                    // Re-fetch and re-render from the server's own copy so
+                    // every UI spot (sidebar, account menu, flyout) shows
+                    // exactly what's now actually saved, including the
+                    // real served photo URL rather than the local preview.
                     try {
                         var authUser = JSON.parse(localStorage.getItem('scalable_auth_user') || 'null');
                         if (authUser && typeof window.applyAuthUserToUI === 'function') {
-                            window.applyAuthUserToUI(authUser);
+                            return window.applyAuthUserToUI(authUser);
                         }
                     } catch (e) { }
-                    closeProfileModal();
-                    showToastSafe(saved ? 'Profile updated.' : 'Profile updated, but the photo was too large to save.');
                 });
             }
 
