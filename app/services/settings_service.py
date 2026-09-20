@@ -82,9 +82,14 @@ class SettingsService:
             return settings
 
     def update(self, key: str, **fields) -> UserSettings:
+        # get() takes self._lock internally (it isn't reentrant), so this
+        # call stays outside update()'s own `with self._lock:` block below
+        # — calling it from inside that block deadlocked every single
+        # update() call (a lock a thread already holds can never be
+        # re-acquired by that same thread). Same bug class already fixed
+        # once in migrate(); missed here until it hung update() in testing.
+        settings = self.get(key)
         with self._lock:
-            settings = self.get(key)
-
             if "language" in fields and fields["language"] not in ALLOWED_LANGUAGES:
                 fields.pop("language")
 
