@@ -2983,7 +2983,7 @@ function setAuthUser(user) {
     } catch (e) { }
 }
 
-function applyAuthUserToUI(user) {
+async function applyAuthUserToUI(user) {
     if (!user) return;
     const emailSpots = [document.getElementById('account-flyout-email')];
     emailSpots.forEach(function (el) { if (el) el.textContent = user.email || user.username; });
@@ -2991,33 +2991,28 @@ function applyAuthUserToUI(user) {
     const usernameEl = document.getElementById('account-flyout-username');
     if (usernameEl) usernameEl.textContent = user.username || '';
 
-    const avatarEl = document.getElementById('account-flyout-avatar');
-    if (avatarEl) {
-        const source = user.display_name || user.username || '?';
-        avatarEl.textContent = source.charAt(0).toUpperCase() || '?';
-    }
-
-    // Real account identity for the sidebar row and the account-menu
-    // header — these used to come from a separate, browser-local
-    // "profile nickname" system (localStorage only, not tied to who's
-    // actually logged in), which is why switching accounts never
-    // updated them and a fresh browser fell back to a hardcoded name.
-    // A custom name the user explicitly saved in Profile settings still
-    // takes precedence over the auth-provider default, same as before —
-    // only the *fallback*, unset case now comes from the real account
-    // instead of a hardcoded string.
-    let customName = '';
+    // Real, server-stored settings for this specific account — replacing
+    // the old browser-local "profile nickname" (localStorage only, never
+    // scoped to which account was actually logged in, which is exactly
+    // why a name/photo set on one account bled into every other account
+    // on the same device, never reached other devices, and could vanish
+    // if that browser's storage was ever cleared). A fetch failure here
+    // just means the name/photo fall back to the auth-provider default
+    // below — never a reason to block the rest of login.
+    let settings = null;
     try {
-        const raw = localStorage.getItem('scalable_profile');
-        const parsed = raw ? JSON.parse(raw) : null;
-        customName = (parsed && parsed.name) ? parsed.name.trim() : '';
-    } catch (e) { /* ignore — falls through to the account-derived name below */ }
+        const res = await authFetch(`${API}/settings`);
+        if (res.ok) settings = await res.json();
+    } catch (e) { /* offline, or the settings service is down — fall through */ }
 
-    const displayName = customName
+    const displayName = (settings && settings.display_name)
         || user.display_name
         || (user.email && user.email.includes('@') ? user.email.split('@')[0] : null)
         || user.username
         || 'New User';
+    const initial = displayName.trim().charAt(0).toUpperCase() || '?';
+    const photoUrl = settings && settings.photo_url ? settings.photo_url : '';
+
     const nameSpots = [
         document.getElementById('sidebar-account-name'),
         document.getElementById('account-menu-name'),
@@ -3027,13 +3022,20 @@ function applyAuthUserToUI(user) {
     const identityAvatarSpots = [
         document.getElementById('sidebar-account-avatar'),
         document.getElementById('account-menu-avatar'),
+        document.getElementById('account-flyout-avatar'),
     ];
-    const initial = displayName.trim().charAt(0).toUpperCase() || '?';
     identityAvatarSpots.forEach(function (el) {
         if (!el) return;
-        el.textContent = initial;
-        el.style.backgroundImage = '';
-        el.classList.remove('has-photo');
+        if (photoUrl) {
+            el.textContent = '';
+            el.style.background = 'center / cover no-repeat url(' + photoUrl + ')';
+            el.classList.add('has-photo');
+        } else {
+            el.textContent = initial;
+            el.style.background = '';
+            el.style.backgroundImage = '';
+            el.classList.remove('has-photo');
+        }
     });
 }
 window.applyAuthUserToUI = applyAuthUserToUI;
