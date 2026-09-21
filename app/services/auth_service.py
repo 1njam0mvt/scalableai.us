@@ -6,14 +6,17 @@ import re
 import secrets
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from config import USERS_DIR
+import jwt
+
+from config import USERS_DIR, JWT_SECRET_KEY
 
 logger = logging.getLogger("SCALABLE")
 
 PBKDF2_ITERATIONS = 260_000
 SESSION_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
+JWT_ALGORITHM = "HS256"
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.]{3,30}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -27,13 +30,27 @@ class AuthService:
 
     Not bank-grade (no email verification, no password reset, single-server
     only) but genuinely real: PBKDF2-hashed passwords with per-user random
-    salts, random unguessable session tokens, and actual access gating.
+    salts, and actual access gating.
+
+    Sessions are stateless JWTs, not a server-side session file. They used
+    to be a random token looked up in database/users/_sessions.json — which
+    worked, but only as long as that file survived. On Render's free tier
+    there's no persistent disk, so that file (and everything else under
+    database/) gets wiped on every restart or redeploy, silently logging
+    every user out with no way to tell them why. A JWT carries everything
+    needed to verify itself (username + expiry, signed with JWT_SECRET_KEY)
+    — there's nothing server-side to lose, so a restart no longer costs
+    anyone their session. The tradeoff, by design: "sign out" only removes
+    the token from the browser, since there's no server-side record to
+    revoke it from — the token itself stays valid until it naturally
+    expires. User account records themselves (password hashes, email)
+    still live on that same non-persistent disk and remain at risk of
+    being wiped on restart; that's a separate, larger fix (a real
+    database) this change does not address.
     """
 
     def __init__(self):
         self._users_dir: Path = USERS_DIR
-        self._sessions_file = self._users_dir / "_sessions.json"
-        self._sessions: Dict[str, Dict[str, Any]] = self._load_sessions()
 
     # ---- password hashing ----
 
@@ -97,57 +114,53 @@ class AuthService:
 
         return False
 
-    # ---- sessions ----
-
-    def _load_sessions(self) -> Dict[str, Dict[str, Any]]:
-        if not self._sessions_file.exists():
-            return {}
-
-        try:
-            with open(self._sessions_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            now = time.time()
-            return {tok: s for tok, s in data.items() if s.get("expires_at", 0) > now}
-        except Exception as e:
-            logger.warning("[AUTH] Could not read sessions file: %s", e)
-            return {}
-
-    def _save_sessions(self) -> None:
-        try:
-            with open(self._sessions_file, "w", encoding="utf-8") as f:
-                json.dump(self._sessions, f, indent=2)
-        except Exception as e:
-            logger.warning("[AUTH] Could not write sessions file: %s", e)
+    # ---- sessions (stateless JWTs — see class docstring) ----
 
     def _create_session(self, username: str) -> str:
-        token = secrets.token_urlsafe(32)
-        self._sessions[token] = {
+        now = int(time.time())
+        payload = {
             "username": username,
-            "expires_at": time.time() + SESSION_TTL_SECONDS,
+            "iat": now,
+            "exp": now + SESSION_TTL_SECONDS,
         }
-        self._save_sessions()
-        return token
+        return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
     def get_username_for_token(self, token: Optional[str]) -> Optional[str]:
         if not token:
             return None
-
-        session = self._sessions.get(token)
-
-        if not session:
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        except jwt.ExpiredSignatureError:
             return None
-
-        if session.get("expires_at", 0) <= time.time():
-            self._sessions.pop(token, None)
-            self._save_sessions()
+        except jwt.InvalidTokenError:
+            # Covers a bad signature (forged/tampered token) and, notably,
+            # a token signed under a *previous* JWT_SECRET_KEY — e.g. one
+            # issued before this env var was set to a stable value. Those
+            # tokens fail closed here rather than raising, which is the
+            # correct behavior (a stale token should just look logged-out,
+            # not error the request).
             return None
-
-        return session.get("username")
+        username = payload.get("username")
+        if not username:
+            return None
+        # A JWT alone can't be revoked (see class docstring), but it can
+        # still be checked against reality: if the account behind it has
+        # since been deleted, its old, not-yet-expired token must not go
+        # on "authenticating" as a username that no longer has an account
+        # — that used to be handled by revoking the token itself on
+        # delete_account(); an existence check accomplishes the same
+        # result without needing a server-side session list. Cheap: a
+        # single file-existence check, not a read of the file's contents.
+        if not self._user_path(username).exists():
+            return None
+        return username
 
     def revoke_session(self, token: Optional[str]) -> None:
-        if token and token in self._sessions:
-            self._sessions.pop(token, None)
-            self._save_sessions()
+        # Deliberately a no-op: a stateless JWT has no server-side record
+        # to remove. "Sign out" is handled entirely client-side (the
+        # browser discarding the token) — see logout() below and the
+        # class docstring for the tradeoff this accepts.
+        pass
 
     # ---- public API ----
 
@@ -217,6 +230,10 @@ class AuthService:
         return self._create_session(username)
 
     def logout(self, token: Optional[str]) -> None:
+        # No-op — see revoke_session and the class docstring. The client
+        # is responsible for discarding the token; this call exists so
+        # the /auth/logout endpoint has something to call and still
+        # returns a clean success either way.
         self.revoke_session(token)
 
     def get_profile(self, username: str) -> Optional[dict]:
@@ -248,15 +265,6 @@ class AuthService:
         self._save_user(username, user_record)
         logger.info("[AUTH] Password changed for user: %s", username)
 
-    def _revoke_all_sessions_for_user(self, username: str) -> None:
-        tokens_to_remove = [tok for tok, s in self._sessions.items() if s.get("username") == username]
-
-        for tok in tokens_to_remove:
-            self._sessions.pop(tok, None)
-
-        if tokens_to_remove:
-            self._save_sessions()
-
     def delete_account(self, username: str, password: str) -> None:
         user_record = self._load_user(username)
 
@@ -271,7 +279,10 @@ class AuthService:
         # the caller already authenticated via a valid session token to
         # reach this endpoint at all.
 
-        self._revoke_all_sessions_for_user(username)
+        # No explicit session revocation needed: get_username_for_token()
+        # now checks the account still exists on disk before trusting any
+        # token's claimed username, so any of this user's existing tokens
+        # stop authenticating the instant the file below is removed.
         path = self._user_path(username)
 
         try:
