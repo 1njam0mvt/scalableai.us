@@ -25,4 +25,4 @@ pypdf>=4.0.0
 python-docx>=1.1.0
 python-multipart>=0.0.9
 cloudinary>=1.40.0  # profile photo storage — Render's local disk is ephemeral, wiped on every restart/redeploy
-
+PyJWT>=2.8.0  # stateless session tokens — same reason, no server-side session file to lose on restart
