@@ -8,6 +8,24 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent
 load_dotenv(BASE_DIR / ".env")
 
+# Signs session JWTs (see auth_service.py). MUST be set as a real env var in
+# production — if it falls back to the generated value below, every server
+# restart would mint a *different* secret and silently invalidate every
+# token issued before that restart, which defeats the entire point of
+# moving sessions off the (non-persistent, free-tier) disk. The fallback
+# exists only so local dev works without a .env file; it logs a loud
+# warning specifically because relying on it in production is a real bug,
+# not a style preference.
+import secrets as _secrets
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+if not JWT_SECRET_KEY:
+    JWT_SECRET_KEY = _secrets.token_urlsafe(48)
+    logger.warning(
+        "JWT_SECRET_KEY is not set — generated a random one for this process only. "
+        "Every existing login session will be invalidated on the next restart/redeploy "
+        "until you set JWT_SECRET_KEY as a real, stable environment variable."
+    )
+
 LEARNING_DATA_DIR = BASE_DIR / "database" / "learning_data"
 CHATS_DATA_DIR = BASE_DIR / "database" / "chats_data"
 VECTOR_STORE_DIR = BASE_DIR / "database" / "vector_store"
