@@ -2545,8 +2545,20 @@ async function loadChatSession(id) {
 function newChat() {
     if (ttsPlayer) ttsPlayer.stop();
     if (camStream) stopCamera();
+    // This click is how newChat() (this file) reaches into the separate,
+    // closure-scoped script block in index.html that owns showSection(),
+    // savedChatMessagesHTML, and the chat input bar's hidden/shown state —
+    // none of which this file has direct access to. It used to be gated on
+    // the nav item NOT already being marked '.active', on the assumption
+    // that 'active' meant "already showing the chat view, nothing to
+    // restore". But opening Discover/Finance from the explore menu (a
+    // separate entry point that doesn't touch navItems) could leave "Chats"
+    // marked active while a Discover/Finance feed was actually on screen —
+    // so the guard skipped the click, showSection('chats') never ran, and
+    // the input bar stayed hidden. Always clicking is safe: showSection is
+    // a no-op when there's nothing saved to restore.
     const chatsNavItem = document.querySelector('.sidebar-nav-item[data-nav="chats"]');
-    if (chatsNavItem && !chatsNavItem.classList.contains('active')) chatsNavItem.click();
+    if (chatsNavItem) chatsNavItem.click();
     sessionId = null;
     clearPendingMode();
     if (chatMessages) chatMessages.innerHTML = '';
