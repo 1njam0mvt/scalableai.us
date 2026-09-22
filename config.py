@@ -105,7 +105,18 @@ INTENT_CLASSIFY_MODEL = os.getenv("INTENT_CLASSIFY_MODEL", "openai/gpt-oss-20b")
 TASK_EXECUTION_TIMEOUT = int(os.getenv("TASK_EXECUTION_TIMEOUT", "30"))
 GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
 VISION_MAX_IMAGE_BYTES = int(os.getenv("VISION_MAX_IMAGE_BYTES", "5000000"))
-TTS_VOICE = os.getenv("TTS_VOICE", "en-GB-RyanNeural")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+# Custom "ScalableAI" voice created in ElevenLabs — this is the app's primary voice.
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "4LNou7KOJvqP5kofkENp")
+# Sentinel stored anywhere a "voice" value lives (dropdown option value, the
+# TTS_VOICE default below, a user's saved personalization.voice). The
+# "elevenlabs:" prefix is how main.py's _generate_tts_sync() tells an
+# ElevenLabs voice apart from a plain edge-tts voice name like
+# "en-GB-RyanNeural".
+ELEVENLABS_VOICE_KEY = f"elevenlabs:{ELEVENLABS_VOICE_ID}"
+# ScalableAI is now the default/primary voice — falls back to edge-tts's
+# Ryan only if you explicitly set TTS_VOICE to an edge-tts voice name.
+TTS_VOICE = os.getenv("TTS_VOICE", ELEVENLABS_VOICE_KEY)
 TTS_RATE = os.getenv("TTS_RATE", "+22%")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 # Required in production: embeddings go through the HF Inference API so the
