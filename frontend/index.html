@@ -2047,16 +2047,28 @@
                 return true;
             }
 
-            function applyProfile(profile) {
-                // Name and the fallback initial-letter avatar now come from
-                // the real logged-in account (see applyAuthUserToUI in
-                // script.js) — this used to also drive sidebar-account-name/
-                // account-menu-name from a browser-local nickname with a
-                // hardcoded fallback, which is what made every account look
-                // like whoever last edited that nickname on this device.
-                // A custom profile photo is still a real personalization
-                // feature worth keeping, so that part stays here.
-                if (!profile.photo) return;
+            function applyProfilePreviewOptimistically(profile) {
+                // Instant, local-only preview of what's about to be saved —
+                // called right when Save is clicked, before the network
+                // round-trip to actually persist it. This is what makes the
+                // sidebar update immediately instead of only after the
+                // upload + settings re-fetch finish, which is what read as
+                // "some time later" (the modal was blocking on that whole
+                // chain before closing, not the sidebar being stale).
+                // applyAuthUserToUI (script.js) still re-runs once the real
+                // save confirms, and is the only thing that runs on page
+                // load / login — this function is never called there, so a
+                // stale local photo/name from a previous session can't
+                // flash before the real server data arrives.
+                var nameSpots = [
+                    document.getElementById('sidebar-account-name'),
+                    document.getElementById('account-menu-name'),
+                ];
+                var displayName = (profile.name || '').trim();
+                if (displayName) {
+                    nameSpots.forEach(function (el) { if (el) el.textContent = displayName; });
+                }
+
                 var avatarSpots = [
                     document.getElementById('sidebar-account-avatar'),
                     document.getElementById('account-menu-avatar'),
@@ -2064,15 +2076,31 @@
                 ];
                 avatarSpots.forEach(function (el) {
                     if (!el) return;
-                    el.textContent = '';
-                    el.style.backgroundImage = 'url(' + profile.photo + ')';
-                    el.style.background = 'center / cover no-repeat url(' + profile.photo + ')';
-                    el.classList.add('has-photo');
+                    if (profile.photo) {
+                        el.textContent = '';
+                        el.style.background = 'center / cover no-repeat url(' + profile.photo + ')';
+                        el.classList.add('has-photo');
+                    } else {
+                        // Photo removed — fall back to an initial letter
+                        // immediately rather than leaving the old photo
+                        // showing until the DELETE call confirms.
+                        var initial = (displayName || '?').charAt(0).toUpperCase() || '?';
+                        el.style.background = '';
+                        el.style.backgroundImage = '';
+                        el.classList.remove('has-photo');
+                        el.textContent = initial;
+                    }
                 });
             }
 
             var currentProfile = loadProfile();
-            applyProfile(currentProfile);
+            // No applyProfilePreviewOptimistically() call here on purpose —
+            // identity rendering on page load/login comes entirely from
+            // applyAuthUserToUI's server fetch (script.js). Calling the
+            // optimistic preview here would flash whatever local color/photo
+            // preference happens to be cached in this browser before the
+            // real server data arrives, which is the exact per-device
+            // staleness bug that was already fixed once this session.
 
             var profileBtn = document.getElementById('account-profile-btn');
             var profileOverlay = document.getElementById('profile-edit-overlay');
@@ -2255,31 +2283,42 @@
             });
             if (profileSaveBtn) {
                 profileSaveBtn.addEventListener('click', function () {
-                    profileSaveBtn.disabled = true;
                     var name = (profileNameInput && profileNameInput.value.trim()) || '';
                     var photoRemoved = (currentProfile.photo && !pendingPhoto);
                     var photoChanged = pendingPhoto && pendingPhoto !== currentProfile.photo;
 
                     // colorId/photo (the base64 preview) still get written to
                     // localStorage so the color-swatch picker keeps its pick
-                    // remembered locally — but the identity that actually
-                    // shows elsewhere in the app (sidebar, account menu) now
-                    // comes from the server via saveProfileToServer below,
-                    // not from this local copy.
+                    // remembered locally — the identity shown elsewhere in
+                    // the app is server-driven once the save below confirms,
+                    // but updates instantly here first from what the user
+                    // just picked, so the sidebar/account menu never sit
+                    // waiting on the network before reflecting the change —
+                    // that wait (upload + settings re-fetch, all before the
+                    // modal was even allowed to close) was the actual delay
+                    // being reported, not a stale/disconnected UI component.
                     currentProfile = { name: name, colorId: pendingColorId, photo: pendingPhoto };
                     saveProfile(currentProfile);
-                    applyProfile(currentProfile);
+                    applyProfilePreviewOptimistically(currentProfile);
+                    closeProfileModal();
 
                     saveProfileToServer(name, photoChanged ? pendingPhoto : null, photoRemoved)
                         .then(function () {
                             showToastSafe('Profile updated.');
                         })
                         .catch(function (err) {
-                            showToastSafe((err && err.message) || 'Profile saved locally, but syncing to your account failed.');
-                        })
-                        .finally(function () {
-                            profileSaveBtn.disabled = false;
-                            closeProfileModal();
+                            // The optimistic preview above is now showing
+                            // something that didn't actually make it to the
+                            // server — re-apply the real, confirmed state
+                            // (whatever it turns out to be) rather than
+                            // leave the UI claiming a save that failed.
+                            showToastSafe((err && err.message) || 'Could not save your profile — please try again.');
+                            try {
+                                var authUser = JSON.parse(localStorage.getItem('scalable_auth_user') || 'null');
+                                if (authUser && typeof window.applyAuthUserToUI === 'function') {
+                                    window.applyAuthUserToUI(authUser);
+                                }
+                            } catch (e) { }
                         });
                 });
             }
