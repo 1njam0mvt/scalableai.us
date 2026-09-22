@@ -389,8 +389,7 @@
                                         voice</label>
                                     <select class="settings-select" id="guest-settings-voice-select">
                                         <option value="">Default (ScalableAI)</option>
-                                        <option value="elevenlabs:4LNou7KOJvqP5kofkENp">ScalableAI — Custom voice
-                                        </option>
+                                        <option value="elevenlabs:4LNou7KOJvqP5kofkENp">ScalableAI — Custom voice</option>
                                         <option value="en-GB-RyanNeural">Ryan — UK, male</option>
                                         <option value="en-GB-SoniaNeural">Sonia — UK, female</option>
                                         <option value="en-GB-LibbyNeural">Libby — UK, female</option>
@@ -969,8 +968,7 @@
                                     <label class="settings-label" for="settings-voice-select">Spoken voice</label>
                                     <select class="settings-select" id="settings-voice-select">
                                         <option value="">Default (ScalableAI)</option>
-                                        <option value="elevenlabs:4LNou7KOJvqP5kofkENp">ScalableAI — Custom voice
-                                        </option>
+                                        <option value="elevenlabs:4LNou7KOJvqP5kofkENp">ScalableAI — Custom voice</option>
                                         <option value="en-GB-RyanNeural">Ryan — UK, male</option>
                                         <option value="en-GB-SoniaNeural">Sonia — UK, female</option>
                                         <option value="en-GB-LibbyNeural">Libby — UK, female</option>
@@ -4116,6 +4114,19 @@
                     i.classList.remove('active');
                 });
                 item.classList.add('active');
+                // showDiscoverFeed()/showFinanceDashboard() swap out the chat
+                // view the same way showSection() does, but — unlike
+                // showSection() — they're reached from this menu instead of
+                // a .sidebar-nav-item click, so nothing here was clearing
+                // navItems' 'active' class. That left whichever sidebar item
+                // (usually "Chats") was active before opening the explore
+                // menu still marked active while a Discover/Finance feed was
+                // actually on screen: a stale, misleading sidebar state, and
+                // — because newChat() below decides whether it needs to
+                // restore the chat view based on that same 'active' class —
+                // the root cause of the chat input bar staying hidden after
+                // "New chat" was clicked from here.
+                navItems.forEach(function (i) { i.classList.remove('active'); });
                 var topic = item.getAttribute('data-topic');
                 if (topic === 'Finance') {
                     showFinanceDashboard();
