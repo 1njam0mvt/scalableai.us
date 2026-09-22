@@ -22,20 +22,73 @@ PHRASES = STARTER_PHRASES
 VOICE = "en-GB-RyanNeural"
 RATE = "+15%"
 
+# The thinking/starter clips are rendered with the same custom "ScalableAI"
+# ElevenLabs voice used as the app's primary TTS voice, so the "okay, hold
+# on" pre-answer fillers sound identical to the spoken reply that follows.
+# ElevenLabs needs an API key and charges per character, so if the key is
+# missing or a request fails we fall back to the original free edge-tts
+# rendering — an audible clip beats no clip (or a broken startup) either day.
+try:
+    from config import ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
+except ImportError:
+    ELEVENLABS_API_KEY = None
+    ELEVENLABS_VOICE_ID = None
+
+ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
+
+def generate_one_elevenlabs(text: str) -> bytes:
+    """Render `text` with the ElevenLabs ScalableAI voice, return raw MP3 bytes.
+
+    Mirrors app.main._generate_elevenlabs_sync() but kept standalone so this
+    script never has to import app.main (which pulls in the entire FastAPI
+    app just to synthesize a handful of one-liners at startup).
+    """
+    import requests
+
+    if not ELEVENLABS_API_KEY:
+        raise RuntimeError("ELEVENLABS_API_KEY is not set")
+
+    resp = requests.post(
+        ELEVENLABS_TTS_URL.format(voice_id=ELEVENLABS_VOICE_ID),
+        headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+        json={
+            "text": text,
+            "model_id": "eleven_turbo_v2_5",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.content
+
+
 async def generate_one(name: str, text: str) -> bool:
 
+    path = AUDIO_DIR / f"{name}.mp3"
+
+    # Primary path: the ElevenLabs ScalableAI voice (runs the blocking HTTP
+    # call in a worker thread so the event loop stays responsive).
+    try:
+        content = await asyncio.to_thread(generate_one_elevenlabs, text)
+        path.write_bytes(content)
+        print(f"  [OK] {name}.mp3 (elevenlabs)")
+        return True
+    except Exception as e:
+        print(f"   [WARN] {name}.mp3 elevenlabs failed: {e} — falling back to edge-tts")
+
+    # Fallback path: free edge-tts rendering, as before.
     try:
         import edge_tts
 
     except ImportError:
+        print(f"   [FAIL] {name}.mp3: edge-tts not installed")
         return False
-
-    path = AUDIO_DIR / f"{name}.mp3"
 
     try:
         communicate = edge_tts.Communicate(text, VOICE, rate=RATE)
         await communicate.save(str(path))
-        print(f"  [OK] {name}.mp3")
+        print(f"  [OK] {name}.mp3 (edge-tts)")
         return True
 
     except Exception as e:

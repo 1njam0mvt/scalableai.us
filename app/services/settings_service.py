@@ -153,3 +153,4 @@ class SettingsService:
             parts.append(f"Personal context about the user: {settings.bio}")
 
         return " ".join(parts)
+
