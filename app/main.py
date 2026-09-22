@@ -16,6 +16,7 @@ import base64
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import edge_tts
+import requests
 import cloudinary
 import cloudinary.uploader
 from typing import Optional
@@ -59,6 +60,7 @@ from config import (
     VECTOR_STORE_DIR, GROQ_API_KEYS, GROQ_MODEL, TAVILY_API_KEY,
     EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHAT_HISTORY_TURNS,
     ASSISTANT_NAME, TTS_VOICE, TTS_RATE, BUG_REPORTS_DIR,
+    ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_VOICE_KEY,
     PROJECT_MAX_FILE_BYTES, PROJECT_MAX_FILES, PROJECT_MAX_CONTEXT_CHARS_PER_FILE,
     SETTINGS_DIR, PROFILE_PHOTO_MAX_BYTES,
     CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
@@ -1323,7 +1325,48 @@ def _merge_short(sentences):
 
     return merged
 
+ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+_ELEVENLABS_PREFIX = "elevenlabs:"
+
+def _generate_elevenlabs_sync(text: str, voice_id: str) -> bytes:
+    """Synthesize speech with the ElevenLabs REST API and return raw MP3 bytes.
+
+    Kept as its own function (mirrors edge_tts's role in _generate_tts_sync)
+    so it can be swapped/mocked independently and so a missing API key fails
+    with a clear error instead of a confusing HTTP 401 deep in requests.
+    """
+    if not ELEVENLABS_API_KEY:
+        raise RuntimeError(
+            "ELEVENLABS_API_KEY is not set — cannot use an ElevenLabs voice. "
+            "Add it to your .env file."
+        )
+
+    resp = requests.post(
+        ELEVENLABS_TTS_URL.format(voice_id=voice_id),
+        headers={
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        json={
+            "text": text,
+            "model_id": "eleven_turbo_v2_5",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        },
+        params={"output_format": "mp3_44100_128"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.content
+
 def _generate_tts_sync(text: str, voice: str, rate: str) -> bytes:
+    # ElevenLabs voices are stored as "elevenlabs:<voice_id>" everywhere a
+    # voice value is passed around (dropdown value, TTS_VOICE, per-user
+    # personalization) — that prefix is the only thing that tells this apart
+    # from a plain edge-tts voice name like "en-GB-RyanNeural".
+    if voice and voice.startswith(_ELEVENLABS_PREFIX):
+        voice_id = voice[len(_ELEVENLABS_PREFIX):] or ELEVENLABS_VOICE_ID
+        return _generate_elevenlabs_sync(text, voice_id)
 
     async def _inner():
         communicate = edge_tts.Communicate(text=text, voice=voice, rate=rate)
@@ -1344,6 +1387,7 @@ VALID_TTS_VOICES = {
     "en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-US-EricNeural",
     "en-US-MichelleNeural", "en-US-RogerNeural", "en-AU-NatashaNeural", "en-AU-WilliamNeural",
     "en-IN-NeerjaNeural", "en-IN-PrabhatNeural",
+    ELEVENLABS_VOICE_KEY,  # "elevenlabs:4LNou7KOJvqP5kofkENp" — the ScalableAI voice
 }
 
 def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, tts_voice: Optional[str] = None):
@@ -1947,6 +1991,12 @@ async def text_to_speech(request: TTSRequest, username: str = Depends(require_au
 
     async def generate():
         try:
+            if TTS_VOICE.startswith(_ELEVENLABS_PREFIX):
+                voice_id = TTS_VOICE[len(_ELEVENLABS_PREFIX):] or ELEVENLABS_VOICE_ID
+                audio = await asyncio.to_thread(_generate_elevenlabs_sync, text, voice_id)
+                yield audio
+                return
+
             communicate = edge_tts.Communicate(text=text, voice=TTS_VOICE, rate=TTS_RATE)
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
