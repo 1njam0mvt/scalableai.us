@@ -2896,6 +2896,50 @@
                 }
             }
 
+            function resetToChatView() {
+                // Brute-force, self-contained reset: every element it touches
+                // is looked up fresh (not via the cached vars above), and it
+                // sets an explicit end-state rather than branching on
+                // whatever class/flag state happens to exist already. That's
+                // deliberate — the previous bug existed because two separate
+                // scripts each tracked their own partial view of "are we in
+                // the chat view or not" and could disagree. This function is
+                // the single, unconditional source of truth for "show the
+                // chat view", callable from this file or from script.js via
+                // window.resetToChatView().
+
+                // 1. Force the chat input bar visible.
+                var inputBar = document.querySelector('.input-bar') || document.querySelector('.input-wrapper');
+                if (inputBar) inputBar.style.display = '';
+
+                // 2. Strip any section/discover mode classes from the main layout.
+                var chatAreaEl = document.getElementById('chat-area');
+                if (chatAreaEl) chatAreaEl.classList.remove('section-mode', 'discover-mode');
+
+                // 3. Reset #chat-messages to the default empty welcome state,
+                //    clearing out any Discover/Finance/section feed HTML.
+                var messagesEl = document.getElementById('chat-messages');
+                if (messagesEl) {
+                    messagesEl.innerHTML = '';
+                    if (typeof createWelcome === 'function') {
+                        messagesEl.appendChild(createWelcome());
+                    }
+                }
+                // Drop any saved snapshot so showSection() can never restore
+                // stale Discover/section HTML over this reset later.
+                savedChatMessagesHTML = null;
+
+                // 4. Force 'Chats' active in the sidebar, clear every other
+                //    nav item and every explore-menu item.
+                document.querySelectorAll('.sidebar-nav-item').forEach(function (item) {
+                    item.classList.toggle('active', item.getAttribute('data-nav') === 'chats');
+                });
+                document.querySelectorAll('#explore-menu .explore-menu-item').forEach(function (item) {
+                    item.classList.remove('active');
+                });
+            }
+            window.resetToChatView = resetToChatView;
+
             navItems.forEach(function (item) {
                 item.addEventListener('click', function () {
                     // Codex needs an account (its sessions aren't something
@@ -2903,6 +2947,12 @@
                     // to sign up instead of opening an empty/broken section.
                     if (item.getAttribute('data-nav') === 'codex' && !getAuthToken()) {
                         window.location.href = '/app/?mode=signup';
+                        return;
+                    }
+                    // 'Chats' strictly calls resetToChatView() and nothing
+                    // else — no showSection(), no active-class branching here.
+                    if (item.getAttribute('data-nav') === 'chats') {
+                        resetToChatView();
                         return;
                     }
                     navItems.forEach(function (i) { i.classList.remove('active'); });

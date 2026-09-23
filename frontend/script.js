@@ -2545,24 +2545,15 @@ async function loadChatSession(id) {
 function newChat() {
     if (ttsPlayer) ttsPlayer.stop();
     if (camStream) stopCamera();
-    // This click is how newChat() (this file) reaches into the separate,
-    // closure-scoped script block in index.html that owns showSection(),
-    // savedChatMessagesHTML, and the chat input bar's hidden/shown state —
-    // none of which this file has direct access to. It used to be gated on
-    // the nav item NOT already being marked '.active', on the assumption
-    // that 'active' meant "already showing the chat view, nothing to
-    // restore". But opening Discover/Finance from the explore menu (a
-    // separate entry point that doesn't touch navItems) could leave "Chats"
-    // marked active while a Discover/Finance feed was actually on screen —
-    // so the guard skipped the click, showSection('chats') never ran, and
-    // the input bar stayed hidden. Always clicking is safe: showSection is
-    // a no-op when there's nothing saved to restore.
-    const chatsNavItem = document.querySelector('.sidebar-nav-item[data-nav="chats"]');
-    if (chatsNavItem) chatsNavItem.click();
+    // resetToChatView() (defined in index.html) is the single source of
+    // truth for "show the chat view": it forces the input bar visible,
+    // strips section/discover-mode classes, rebuilds #chat-messages as the
+    // welcome screen, and fixes the sidebar's active state — all
+    // unconditionally, with no click simulation and no branching on
+    // whatever state Discover/Finance/Projects left behind.
+    if (typeof window.resetToChatView === 'function') window.resetToChatView();
     sessionId = null;
     clearPendingMode();
-    if (chatMessages) chatMessages.innerHTML = '';
-    chatMessages.appendChild(createWelcome());
     setQuickActionsVisible(false);
     document.body.classList.remove('chat-mode');
     messageInput.value = '';
