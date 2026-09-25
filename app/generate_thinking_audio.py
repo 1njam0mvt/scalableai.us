@@ -6,20 +6,20 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = PROJECT_ROOT / "frontend" / "audio"
 
 STARTER_PHRASES = [
-    ("starter_1", "One moment please."),
-    ("starter_2", "Sure wait I got it."),
-    ("starter_3", "Got it, hold on."),
-    ("starter_4", "On it right now."),
-    ("starter_5", "Alright, give me a sec."),
-    ("starter_6", "Right, one moment."),
-    ("starter_7", "Okay, hold on."),
-    ("starter_8", "One second please."),
-    ("starter_9", "Give me a moment."),
-    ("starter_10", "Just a moment please."),
+    ("starter_1", "One second sir I am updating your request."),
+    ("starter_2", "Sure sir i am searching that if I find it, I will get back to you."),
+    ("starter_3", "Got it sir. Could you hold for a sec."),
+    ("starter_4", "On my way, sir. I got it."),
+    ("starter_5", "Alright Sir, give me a sec."),
+    ("starter_6", "Right, sir, one moment."),
+    ("starter_7", "Okay sir, hold on while I am finding your query."),
+    ("starter_8", "One second please sir; I will inform you."),
+    ("starter_9", "Give me a moment to check that, sir."),
+    ("starter_10", "Just a moment, sir. I am checking that; could you wait for a second, please."),
 ]
 
 PHRASES = STARTER_PHRASES
-VOICE = "en-GB-RyanNeural"
+VOICE = "elevenlabs:4LNou7KOJvqP5kofkENp"
 RATE = "+15%"
 
 # The thinking/starter clips are rendered with the same custom "ScalableAI"
