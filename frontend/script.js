@@ -3014,7 +3014,7 @@ async function applyAuthUserToUI(user) {
         || user.username
         || 'New User';
     const initial = displayName.trim().charAt(0).toUpperCase() || '?';
-    const photoUrl = settings && settings.photo_url ? settings.photo_url : '';
+    const photoUrl = (settings && settings.photo_url) ? settings.photo_url : (user.photo_url || '');
 
     const nameSpots = [
         document.getElementById('sidebar-account-name'),
