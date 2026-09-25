@@ -26,6 +26,25 @@ if not JWT_SECRET_KEY:
         "until you set JWT_SECRET_KEY as a real, stable environment variable."
     )
 
+# Postgres connection string for user accounts + settings (Render Postgres
+# gives you this as an env var automatically once the database is attached
+# to this service — see README/DEPLOY notes). Falls back to a local SQLite
+# file so `python run.py` still works with zero setup in dev; SQLite is
+# NOT persistent-safe on Render's own disk, so production must set this.
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    DATABASE_URL = f"sqlite:///{BASE_DIR / 'database' / 'local_dev.db'}"
+    logger.warning(
+        "DATABASE_URL is not set — using a local SQLite file for accounts/settings. "
+        "This is fine for local dev only; set DATABASE_URL (Render Postgres) in production "
+        "or account/profile data will not survive a restart."
+    )
+# Render's Postgres connection strings start with postgres:// but SQLAlchemy
+# 1.4+/2.x requires the postgresql:// scheme — normalize so DATABASE_URL can
+# be pasted directly from the Render dashboard with no manual edits.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 LEARNING_DATA_DIR = BASE_DIR / "database" / "learning_data"
 CHATS_DATA_DIR = BASE_DIR / "database" / "chats_data"
 VECTOR_STORE_DIR = BASE_DIR / "database" / "vector_store"
