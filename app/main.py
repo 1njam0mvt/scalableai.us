@@ -671,9 +671,34 @@ def _migrate_guest_settings_if_present(authorization: Optional[str], real_userna
     except Exception as e:
         logger.warning("[SETTINGS] Guest settings migration failed for %s -> %s: %s", guest_key, real_username, e)
 
+def _build_auth_response(token: str, profile: dict) -> AuthResponse:
+    """Builds the login/signup response from the account record, overlaid
+    with the user's saved profile customizations (display name, avatar)
+    from settings_service. auth_service's own profile only ever reflects
+    what was set at signup/OAuth time - it is never updated when the user
+    edits their name or uploads a photo via /settings, so reading only
+    from there on every login/OAuth callback silently reverted the UI to
+    the original name and default avatar. This is the single place that
+    combines both stores, so every login path (password, OAuth, One Tap)
+    returns the customized profile the same way."""
+    display_name = profile["display_name"]
+    photo_url = ""
+    if settings_service:
+        try:
+            saved = settings_service.get(profile["username"])
+            if saved.display_name:
+                display_name = saved.display_name
+            photo_url = saved.photo_url or ""
+        except Exception as e:
+            logger.warning("[AUTH] Could not load saved settings for %s: %s", profile["username"], e)
+    return AuthResponse(
+        token=token, username=profile["username"], email=profile["email"],
+        display_name=display_name, created_at=profile.get("created_at"),
+        photo_url=photo_url,
+    )
+
 
 @app.post("/auth/signup", response_model=AuthResponse)
-
 async def signup(request: SignupRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
@@ -683,10 +708,7 @@ async def signup(request: SignupRequest, authorization: Optional[str] = Header(d
         actual_username = auth_service.get_username_for_token(token)
         profile = auth_service.get_profile(actual_username)
         _migrate_guest_settings_if_present(authorization, actual_username)
-        return AuthResponse(
-            token=token, username=profile["username"], email=profile["email"],
-            display_name=profile["display_name"], created_at=profile.get("created_at"),
-        )
+        return _build_auth_response(token, profile)
 
     except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -696,7 +718,6 @@ async def signup(request: SignupRequest, authorization: Optional[str] = Header(d
         raise HTTPException(status_code=500, detail="Could not create account")
 
 @app.post("/auth/login", response_model=AuthResponse)
-
 async def login(request: LoginRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
@@ -708,10 +729,7 @@ async def login(request: LoginRequest, authorization: Optional[str] = Header(def
         actual_username = auth_service.get_username_for_token(token)
         profile = auth_service.get_profile(actual_username)
         _migrate_guest_settings_if_present(authorization, actual_username)
-        return AuthResponse(
-            token=token, username=profile["username"], email=profile["email"],
-            display_name=profile["display_name"], created_at=profile.get("created_at"),
-        )
+        return _build_auth_response(token, profile)
 
     except AuthError as e:
         raise HTTPException(status_code=401, detail=str(e))
