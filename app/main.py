@@ -233,6 +233,24 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing Finance service (FMP)...")
         finance_service = FinanceService()
         logger.info("Finance service initialized successfully")
+
+        # The "thinking" filler clips (frontend/audio/starter_*.mp3, e.g. "One
+        # moment please.") are pre-rendered once by generate_thinking_audio.py,
+        # not synthesized live — so if ELEVENLABS_API_KEY was missing or the
+        # ElevenLabs call failed the last time that script ran, those files
+        # were silently written with the free edge-tts fallback voice instead,
+        # and will keep playing in that voice on every request until someone
+        # re-runs the script. This won't fix a stale file, but at least it
+        # surfaces the mismatch at every startup instead of staying silent.
+        if not ELEVENLABS_API_KEY:
+            logger.warning(
+                "[TTS] ELEVENLABS_API_KEY is not set. Live TTS will use the edge-tts "
+                "fallback voice, and any frontend/audio/starter_*.mp3 filler clips "
+                "generated without this key will also be in the fallback voice, not "
+                "ElevenLabs. Set ELEVENLABS_API_KEY, then re-run "
+                "`python app/generate_thinking_audio.py` to regenerate them."
+            )
+
         logger.info("Initializing Auth service...")
         from app.services.db import init_db
         init_db()  # creates users/settings tables if they don't exist yet
