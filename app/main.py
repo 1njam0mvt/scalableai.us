@@ -234,6 +234,8 @@ async def lifespan(app: FastAPI):
         finance_service = FinanceService()
         logger.info("Finance service initialized successfully")
         logger.info("Initializing Auth service...")
+        from app.services.db import init_db
+        init_db()  # creates users/settings tables if they don't exist yet
         auth_service = AuthService()
         logger.info("Auth service initialized successfully")
 
@@ -444,6 +446,33 @@ def _verify_guest_token(token: str) -> Optional[str]:
     if not hmac.compare_digest(sig, expected):
         return None
     return guest_id
+
+def _build_auth_response(token: str, profile: dict) -> "AuthResponse":
+    """Builds the login/signup response from the account record, overlaid
+    with the user's saved profile customizations (display name, avatar)
+    from settings_service. auth_service's own profile only ever reflects
+    what was set at signup/OAuth time - it is never updated when the user
+    edits their name or uploads a photo via /settings, so reading only
+    from there on every login/OAuth callback silently reverted the UI to
+    the original name and default avatar. This is the single place that
+    combines both stores, so every login path (password, OAuth, One Tap)
+    returns the customized profile the same way."""
+    display_name = profile["display_name"]
+    photo_url = ""
+    if settings_service:
+        try:
+            saved = settings_service.get(profile["username"])
+            if saved.display_name:
+                display_name = saved.display_name
+            photo_url = saved.photo_url or ""
+        except Exception as e:
+            logger.warning("[AUTH] Could not load saved settings for %s: %s", profile["username"], e)
+    return AuthResponse(
+        token=token, username=profile["username"], email=profile["email"],
+        display_name=display_name, created_at=profile.get("created_at"),
+        photo_url=photo_url,
+    )
+
 
 @app.post("/auth/guest")
 async def create_guest_token():
@@ -671,34 +700,9 @@ def _migrate_guest_settings_if_present(authorization: Optional[str], real_userna
     except Exception as e:
         logger.warning("[SETTINGS] Guest settings migration failed for %s -> %s: %s", guest_key, real_username, e)
 
-def _build_auth_response(token: str, profile: dict) -> AuthResponse:
-    """Builds the login/signup response from the account record, overlaid
-    with the user's saved profile customizations (display name, avatar)
-    from settings_service. auth_service's own profile only ever reflects
-    what was set at signup/OAuth time - it is never updated when the user
-    edits their name or uploads a photo via /settings, so reading only
-    from there on every login/OAuth callback silently reverted the UI to
-    the original name and default avatar. This is the single place that
-    combines both stores, so every login path (password, OAuth, One Tap)
-    returns the customized profile the same way."""
-    display_name = profile["display_name"]
-    photo_url = ""
-    if settings_service:
-        try:
-            saved = settings_service.get(profile["username"])
-            if saved.display_name:
-                display_name = saved.display_name
-            photo_url = saved.photo_url or ""
-        except Exception as e:
-            logger.warning("[AUTH] Could not load saved settings for %s: %s", profile["username"], e)
-    return AuthResponse(
-        token=token, username=profile["username"], email=profile["email"],
-        display_name=display_name, created_at=profile.get("created_at"),
-        photo_url=photo_url,
-    )
-
 
 @app.post("/auth/signup", response_model=AuthResponse)
+
 async def signup(request: SignupRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
@@ -718,6 +722,7 @@ async def signup(request: SignupRequest, authorization: Optional[str] = Header(d
         raise HTTPException(status_code=500, detail="Could not create account")
 
 @app.post("/auth/login", response_model=AuthResponse)
+
 async def login(request: LoginRequest, authorization: Optional[str] = Header(default=None)):
     if not auth_service:
         raise HTTPException(status_code=503, detail="Auth service not initialized")
@@ -756,7 +761,22 @@ async def me(username: str = Depends(require_auth)):
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return profile
+    # Overlay saved display name / avatar the same way login does — this
+    # is what the frontend calls on every page reload, so returning only
+    # the bare account record here (no photo_url) is exactly why a reload
+    # showed the default avatar even though /settings itself was correct.
+    display_name = profile["display_name"]
+    photo_url = ""
+    if settings_service:
+        try:
+            saved = settings_service.get(username)
+            if saved.display_name:
+                display_name = saved.display_name
+            photo_url = saved.photo_url or ""
+        except Exception as e:
+            logger.warning("[AUTH] Could not load saved settings for %s: %s", username, e)
+
+    return {**profile, "display_name": display_name, "photo_url": photo_url}
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -2173,4 +2193,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-
