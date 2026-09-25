@@ -3288,7 +3288,13 @@ function scalableInitAuthGate() {
 
             setAuthToken(data.token);
             setGuestToken(null);
-            const userForUI = { username: data.username, email: data.email, display_name: data.display_name, created_at: data.created_at, photo_url: data.photo_url };
+            const userForUI = { 
+                username: data.username, 
+                email: data.email, 
+                display_name: data.display_name, 
+                created_at: data.created_at,
+                photo_url: data.photo_url 
+            };
             setAuthUser(userForUI);
             applyAuthUserToUI(userForUI);
             updateGuestAuthUI(false);
