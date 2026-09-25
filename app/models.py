@@ -58,6 +58,7 @@ class AuthResponse(BaseModel):
     email: str
     display_name: str
     created_at: Optional[float] = None
+    photo_url: str = ""
 
 class BugReportRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
