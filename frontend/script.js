@@ -3030,14 +3030,9 @@ async function applyAuthUserToUI(user) {
     identityAvatarSpots.forEach(function (el) {
         if (!el) return;
         if (photoUrl) {
-            el.textContent = '';
-            el.style.background = 'center / cover no-repeat url(' + photoUrl + ')';
-            el.classList.add('has-photo');
+            el.innerHTML = `<img src="${photoUrl}" alt="${displayName}">`;
         } else {
             el.textContent = initial;
-            el.style.background = '';
-            el.style.backgroundImage = '';
-            el.classList.remove('has-photo');
         }
     });
 }
