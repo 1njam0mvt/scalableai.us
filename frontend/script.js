@@ -2579,7 +2579,7 @@ function createWelcome() {
     div.id = 'welcome-screen';
     div.innerHTML = `
         <div class="welcome-icon">
-            <img class="welcome-icon-logo" src="[https://www.scalableai.us/app/scalable-logo.png](https://www.scalableai.us/app/scalable-logo.png)" alt="Scalable">
+            <img class="welcome-icon-logo" src="https://www.scalableai.us/app/scalable-logo.png" alt="Scalable">
         </div>
         <h2 class="welcome-title">${g}</h2>
         <p class="welcome-sub">${T('welcome.sub', 'How may I assist you today?')}</p>
@@ -2691,7 +2691,7 @@ function setQuickActionsVisible(visible) {
 }
 
 const AVATAR_ICON_USER = '<svg class="msg-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-const AVATAR_ICON_ASSISTANT = '<img class="msg-avatar-logo" src="[https://www.scalableai.us/app/scalable-logo.png](https://www.scalableai.us/app/scalable-logo.png)" alt="Scalable">';
+const AVATAR_ICON_ASSISTANT = '<img class="msg-avatar-logo" src="https://www.scalableai.us/app/scalable-logo.png" alt="Scalable">';
 
 const QUICK_ACTIONS = [
     { icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', label: 'Open Website', msg: 'Open a website for me' },
