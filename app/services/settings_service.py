@@ -2,17 +2,20 @@
 Personalization / Profile settings for SCALABLE
 
 Backs the frontend's Personalization and Profile menu items. Settings are
-per-account-key (a logged-in user's user_id, or a stable per-browser id for
-anonymous/local use) and are actually injected into the system prompt on
-every request — this isn't just stored and ignored.
+per-account-key (a logged-in user's username, or a stable per-browser id
+for anonymous/local use) and are actually injected into the system prompt
+on every request — this isn't just stored and ignored.
+
+Now Postgres-backed (formerly database/settings/<key>.json files, which
+lived on Render's ephemeral free-tier disk and were wiped on restarts).
 """
 
-import json
 import logging
 import threading
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Dict, Optional
+
+from app.services.db import SessionLocal, SettingsRecord
 
 logger = logging.getLogger("SCALABLE")
 
@@ -40,7 +43,7 @@ class UserSettings:
     language: str = "English"
     bio: str = ""                   # free-text personalization notes, injected into system prompt
     theme: str = "dark"             # mirrors the frontend's own local toggle, kept in sync
-    photo_url: str = ""             # served path to their uploaded avatar, e.g. /profile-photos/<username>.jpg
+    photo_url: str = ""             # Cloudinary URL of their uploaded avatar
     improve_model_for_everyone: bool = True
     marketing_measurement: bool = True
     personalized_marketing: bool = True
@@ -51,44 +54,42 @@ class UserSettings:
 
 class SettingsService:
 
-    def __init__(self, storage_dir: Path):
-        self.storage_dir = storage_dir
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, storage_dir=None):
+        # storage_dir kept as an accepted (now unused) constructor arg so
+        # the call site in main.py (SettingsService(storage_dir=SETTINGS_DIR))
+        # doesn't need to change. Settings now live in Postgres, not on disk.
         self._lock = threading.Lock()
         self._cache: Dict[str, UserSettings] = {}
 
-    def _path(self, key: str) -> Path:
-        safe_key = "".join(c for c in key if c.isalnum() or c in ("-", "_"))[:64] or "default"
-        return self.storage_dir / f"{safe_key}.json"
+    @staticmethod
+    def _safe_key(key: str) -> str:
+        safe_key = "".join(c for c in (key or "") if c.isalnum() or c in ("-", "_"))[:64] or "default"
+        return safe_key
 
     def get(self, key: str) -> UserSettings:
+        safe_key = self._safe_key(key)
         with self._lock:
-            if key in self._cache:
-                return self._cache[key]
+            if safe_key in self._cache:
+                return self._cache[safe_key]
 
-            path = self._path(key)
-            if path.exists():
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    settings = UserSettings(**{k: v for k, v in data.items() if k in UserSettings.__annotations__})
-                except Exception as e:
-                    logger.warning("[SETTINGS] Could not load settings for %s: %s", key, e)
-                    settings = UserSettings()
-            else:
-                settings = UserSettings()
+        db = SessionLocal()
+        try:
+            row = db.get(SettingsRecord, safe_key)
+            settings = UserSettings(**row.to_dict()) if row else UserSettings()
+        except Exception as e:
+            logger.warning("[SETTINGS] Could not load settings for %s: %s", key, e)
+            settings = UserSettings()
+        finally:
+            db.close()
 
-            self._cache[key] = settings
-            return settings
+        with self._lock:
+            self._cache[safe_key] = settings
+        return settings
 
     def update(self, key: str, **fields) -> UserSettings:
-        # get() takes self._lock internally (it isn't reentrant), so this
-        # call stays outside update()'s own `with self._lock:` block below
-        # — calling it from inside that block deadlocked every single
-        # update() call (a lock a thread already holds can never be
-        # re-acquired by that same thread). Same bug class already fixed
-        # once in migrate(); missed here until it hung update() in testing.
-        settings = self.get(key)
+        safe_key = self._safe_key(key)
+        settings = self.get(safe_key)
+
         with self._lock:
             if "language" in fields and fields["language"] not in ALLOWED_LANGUAGES:
                 fields.pop("language")
@@ -101,38 +102,64 @@ class SettingsService:
                 if hasattr(settings, k):
                     setattr(settings, k, v)
 
-            self._cache[key] = settings
+            self._cache[safe_key] = settings
 
-            try:
-                with open(self._path(key), "w", encoding="utf-8") as f:
-                    json.dump(settings.to_dict(), f, indent=2)
-            except Exception as e:
-                logger.error("[SETTINGS] Failed to persist settings for %s: %s", key, e)
+        db = SessionLocal()
+        try:
+            row = db.get(SettingsRecord, safe_key)
+            if row is None:
+                row = SettingsRecord(key=safe_key)
+                db.add(row)
+            for k, v in settings.to_dict().items():
+                setattr(row, k, v)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error("[SETTINGS] Failed to persist settings for %s: %s", key, e)
+        finally:
+            db.close()
 
-            return settings
+        return settings
 
     def migrate(self, from_key: str, to_key: str) -> Optional[UserSettings]:
         """Copies a guest's settings onto their real account the moment they
-        log in or sign up, then removes the guest-keyed file — the guest
+        log in or sign up, then removes the guest-keyed row — the guest
         identity is throwaway once it's been folded into a real account, so
         nothing is left behind under the old key. Returns None (no-op) if
-        the guest never actually had a settings file, which is the common
+        the guest never actually had a settings row, which is the common
         case for a guest who never touched Settings."""
-        guest_path = self._path(from_key)
-        if not guest_path.exists():
-            return None
+        safe_from = self._safe_key(from_key)
+
+        db = SessionLocal()
+        try:
+            guest_row = db.get(SettingsRecord, safe_from)
+            if guest_row is None:
+                return None
+            guest_dict = guest_row.to_dict()
+        finally:
+            db.close()
+
         # get()/update() each take self._lock internally (it isn't
         # reentrant), so this stays outside any lock of its own and lets
         # those calls do their own locking — calling one while already
         # holding the lock here would deadlock.
-        guest_settings = self.get(from_key)
-        account_settings = self.update(to_key, **guest_settings.to_dict())
+        account_settings = self.update(to_key, **guest_dict)
+
+        db = SessionLocal()
+        try:
+            guest_row = db.get(SettingsRecord, safe_from)
+            if guest_row is not None:
+                db.delete(guest_row)
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning("[SETTINGS] Could not remove guest settings row for %s: %s", from_key, e)
+        finally:
+            db.close()
+
         with self._lock:
-            try:
-                guest_path.unlink()
-            except Exception as e:
-                logger.warning("[SETTINGS] Could not remove guest settings file for %s: %s", from_key, e)
-            self._cache.pop(from_key, None)
+            self._cache.pop(safe_from, None)
+
         return account_settings
 
     def build_prompt_addendum(self, key: str) -> str:
@@ -153,4 +180,3 @@ class SettingsService:
             parts.append(f"Personal context about the user: {settings.bio}")
 
         return " ".join(parts)
-
