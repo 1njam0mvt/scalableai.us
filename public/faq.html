@@ -20,6 +20,9 @@
     <link rel="canonical" href="https://scalableai.us/faq.html" />
     <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
     <link rel="shortcut icon" href="favicon.ico" />
+    <script>
+        (function () { try { var t = localStorage.getItem('theme-preference'); if (!t) { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } document.documentElement.setAttribute('data-theme', t); } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); } })();
+    </script>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -608,6 +611,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 
 <body>
@@ -622,6 +626,22 @@
                 <a href="/terms.html">Terms</a>
                 <a href="/privacy.html">Privacy</a>
             </nav>
+            <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch to light theme">
+                <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <line x1="12" y1="2" x2="12" y2="4"></line>
+                    <line x1="12" y1="20" x2="12" y2="22"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="2" y1="12" x2="4" y2="12"></line>
+                    <line x1="20" y1="12" x2="22" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
             <a href="/" class="back-link">← Back to home</a>
         </div>
     </header>
@@ -751,6 +771,7 @@
     </footer>
     <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
     <script src="/cookie-consent.js"></script>
+    <script src="theme.js"></script>
 </body>
 
 </html>
