@@ -243,21 +243,52 @@ const pendingModeClear = $('pending-mode-clear');
 const fileInputEl = $('file-input');
 const sidebarHistory = $('sidebar-history');
 
+// ---- Starter/TTS overlap gate ----
+// The starter clip and the streamed reply play on two separate <audio>
+// elements, so nothing stopped the reply from starting while the starter
+// was still speaking (they collided). starterGate holds a promise for the
+// currently-playing starter clip: TTSPlayer waits on it before its first
+// segment; the promise resolves on natural end, on error, or when anything
+// cuts the starter short (voice interrupt / stop).
+let starterGate = Promise.resolve();
+let starterAbort = null;
+
+function beginStarterGate() {
+    let release;
+    const promise = new Promise(res => { release = res; });
+    starterAbort = release;
+    starterGate = promise;
+    return promise;
+}
+
+function releaseStarterGate() {
+    if (starterAbort) {
+        const r = starterAbort;
+        starterAbort = null;
+        r();
+    }
+}
+
 class PreStarterPlayer {
     constructor() {
         this.audio = document.createElement('audio');
         this.audio.preload = 'auto';
     }
     play(onComplete) {
+        const gate = beginStarterGate();
+        const finish = () => {
+            releaseStarterGate();
+            if (onComplete) onComplete();
+        };
         const loaded = PRE_STARTER_FILES.filter(f => PRE_STARTER_CACHE[f]);
         if (loaded.length === 0) {
-            if (onComplete) onComplete();
+            finish();
             return;
         }
         const file = loaded[Math.floor(Math.random() * loaded.length)];
         const base64 = PRE_STARTER_CACHE[file];
         if (!base64) {
-            if (onComplete) onComplete();
+            finish();
             return;
         }
         this.audio.src = 'data:audio/mp3;base64,' + base64;
@@ -268,12 +299,16 @@ class PreStarterPlayer {
             fired = true;
             this.audio.onended = null;
             this.audio.onerror = null;
-            if (onComplete) onComplete();
+            finish();
         };
         this.audio.onended = done;
         this.audio.onerror = done;
         const p = this.audio.play();
         if (p) p.catch(done);
+    }
+    stop() {
+        try { this.audio.pause(); this.audio.currentTime = 0; } catch (_) { }
+        releaseStarterGate();
     }
 }
 
@@ -312,6 +347,7 @@ class TTSPlayer {
     }
     stop() {
         this.stopped = true;
+        releaseStarterGate();
         this.audio.pause();
         this.audio.removeAttribute('src');
         this.audio.load();
@@ -335,6 +371,17 @@ class TTSPlayer {
         if (ttsBtn) ttsBtn.classList.add('tts-speaking');
         if (orbContainer) orbContainer.classList.add('speaking');
         if (orb) orb.setActive(true);
+        // Wait for any in-flight starter clip to finish before the reply's
+        // first audio segment plays, so the filler line and the answer
+        // never overlap. Voice interrupt/stop resolves the gate early.
+        await starterGate;
+        if (this.stopped || myId !== this._loopId) {
+            this.playing = false;
+            if (ttsBtn) ttsBtn.classList.remove('tts-speaking');
+            if (orbContainer) orbContainer.classList.remove('speaking');
+            if (orb) orb.setActive(false);
+            return;
+        }
         while (this.queue.length > 0) {
             if (this.stopped || myId !== this._loopId) break;
             const b64 = this.queue.shift();
@@ -517,9 +564,12 @@ function initSpeech() {
         const isFinal = last && last.isFinal;
         if (speechWidgetText) speechWidgetText.textContent = transcript;
         if (speechWidget) speechWidget.classList.add('visible');
-        if (settings.voiceInterrupt && ttsPlayer && ttsPlayer.playing && transcript.length > 0) {
-            ttsPlayer.stop();
-            ttsPlayer.stopped = false;
+        if (settings.voiceInterrupt && (preStarterPlayer || (ttsPlayer && ttsPlayer.playing)) && transcript.length > 0) {
+            if (preStarterPlayer) preStarterPlayer.stop();
+            if (ttsPlayer && ttsPlayer.playing) {
+                ttsPlayer.stop();
+                ttsPlayer.stopped = false;
+            }
         }
         if (isFinal && transcript) {
             pendingSendTranscript = transcript;
