@@ -27,4 +27,7 @@ python-multipart>=0.0.17
 cloudinary>=1.40.0  # profile photo storage — Render's local disk is ephemeral, wiped on every restart/redeploy
 PyJWT>=2.10.0  # stateless session tokens — same reason, no server-side session file to lose on restart
 cryptography>=43.0.0  # ES256 signing for the Apple OAuth client_secret (scripts/generate_apple_client_secret.py)
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
+
 

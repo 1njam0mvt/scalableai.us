@@ -6,16 +6,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = PROJECT_ROOT / "frontend" / "audio"
 
 STARTER_PHRASES = [
-    ("starter_1", "One moment please."),
-    ("starter_2", "Sure wait I got it."),
-    ("starter_3", "Got it, hold on."),
-    ("starter_4", "On it right now."),
-    ("starter_5", "Alright, give me a sec."),
-    ("starter_6", "Right, one moment."),
-    ("starter_7", "Okay, hold on."),
-    ("starter_8", "One second please."),
-    ("starter_9", "Give me a moment."),
-    ("starter_10", "Just a moment please."),
+    ("starter_1", "One second sir I am updating your request."),
+    ("starter_2", "Sure sir i am searching that if i found then i get back on it."),
+    ("starter_3", "Got it sir, could you hold for a sec."),
+    ("starter_4", "On my way sir, wait i got it."),
+    ("starter_5", "Alright Sir, give me a sec."),
+    ("starter_6", "Right Sir, one moment."),
+    ("starter_7", "Okay sir, hold on while i am finding your query."),
+    ("starter_8", "One second please sir, i will back to you."),
+    ("starter_9", "Give me a moment for checking that sir."),
+    ("starter_10", "Just a moment sir I am checking that could you wait for a second please."),
 ]
 
 PHRASES = STARTER_PHRASES

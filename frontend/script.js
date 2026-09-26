@@ -2579,7 +2579,7 @@ function createWelcome() {
     div.id = 'welcome-screen';
     div.innerHTML = `
         <div class="welcome-icon">
-            <img class="welcome-icon-logo" src="https://www.scalableai.us/app/scalable-logo.png" alt="Scalable">
+            <img class="welcome-icon-logo" src="/scalable-logo.png" alt="Scalable">
         </div>
         <h2 class="welcome-title">${g}</h2>
         <p class="welcome-sub">${T('welcome.sub', 'How may I assist you today?')}</p>
@@ -3014,7 +3014,7 @@ async function applyAuthUserToUI(user) {
         || user.username
         || 'New User';
     const initial = displayName.trim().charAt(0).toUpperCase() || '?';
-    const photoUrl = (settings && settings.photo_url) ? settings.photo_url : (user.photo_url || '');
+    const photoUrl = settings && settings.photo_url ? settings.photo_url : '';
 
     const nameSpots = [
         document.getElementById('sidebar-account-name'),
@@ -3030,9 +3030,14 @@ async function applyAuthUserToUI(user) {
     identityAvatarSpots.forEach(function (el) {
         if (!el) return;
         if (photoUrl) {
-            el.innerHTML = `<img src="${photoUrl}" alt="${displayName}">`;
+            el.textContent = '';
+            el.style.background = 'center / cover no-repeat url(' + photoUrl + ')';
+            el.classList.add('has-photo');
         } else {
             el.textContent = initial;
+            el.style.background = '';
+            el.style.backgroundImage = '';
+            el.classList.remove('has-photo');
         }
     });
 }
@@ -3283,7 +3288,13 @@ function scalableInitAuthGate() {
 
             setAuthToken(data.token);
             setGuestToken(null);
-            const userForUI = { username: data.username, email: data.email, display_name: data.display_name, created_at: data.created_at };
+            const userForUI = {
+                username: data.username,
+                email: data.email,
+                display_name: data.display_name,
+                created_at: data.created_at,
+                photo_url: data.photo_url
+            };
             setAuthUser(userForUI);
             applyAuthUserToUI(userForUI);
             updateGuestAuthUI(false);

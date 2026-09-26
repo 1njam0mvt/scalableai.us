@@ -1,16 +1,15 @@
 import hashlib
 import hmac
-import json
 import logging
 import re
 import secrets
 import time
-from pathlib import Path
 from typing import Optional
 
 import jwt
 
-from config import USERS_DIR, JWT_SECRET_KEY
+from config import JWT_SECRET_KEY
+from app.services.db import SessionLocal, UserRecord
 
 logger = logging.getLogger("SCALABLE")
 
@@ -26,31 +25,25 @@ class AuthError(Exception):
 
 
 class AuthService:
-    """Local, file-based username/password auth.
+    """Postgres-backed username/password auth (formerly file-based JSON —
+    see git history for the old database/users/*.json version).
 
-    Not bank-grade (no email verification, no password reset, single-server
-    only) but genuinely real: PBKDF2-hashed passwords with per-user random
-    salts, and actual access gating.
+    Not bank-grade (no email verification, no password reset) but
+    genuinely real: PBKDF2-hashed passwords with per-user random salts,
+    and actual access gating.
 
-    Sessions are stateless JWTs, not a server-side session file. They used
-    to be a random token looked up in database/users/_sessions.json — which
-    worked, but only as long as that file survived. On Render's free tier
-    there's no persistent disk, so that file (and everything else under
-    database/) gets wiped on every restart or redeploy, silently logging
-    every user out with no way to tell them why. A JWT carries everything
-    needed to verify itself (username + expiry, signed with JWT_SECRET_KEY)
-    — there's nothing server-side to lose, so a restart no longer costs
-    anyone their session. The tradeoff, by design: "sign out" only removes
-    the token from the browser, since there's no server-side record to
-    revoke it from — the token itself stays valid until it naturally
-    expires. User account records themselves (password hashes, email)
-    still live on that same non-persistent disk and remain at risk of
-    being wiped on restart; that's a separate, larger fix (a real
-    database) this change does not address.
+    Sessions are stateless JWTs, not a server-side session table. A JWT
+    carries everything needed to verify itself (username + expiry, signed
+    with JWT_SECRET_KEY) — nothing server-side to lose on a restart. The
+    tradeoff, by design: "sign out" only removes the token from the
+    browser; the token itself stays valid until it naturally expires.
+    Account records (password hashes, email, display name) now live in
+    Postgres, which — unlike Render's free-tier local disk — survives
+    restarts and redeploys.
     """
 
     def __init__(self):
-        self._users_dir: Path = USERS_DIR
+        pass  # no per-instance state; every method opens its own session
 
     # ---- password hashing ----
 
@@ -72,47 +65,56 @@ class AuthService:
         except Exception:
             return False
 
-    # ---- user file storage ----
+    # ---- row helpers ----
 
-    def _user_path(self, username: str) -> Path:
-        safe = re.sub(r"[^a-zA-Z0-9_.-]", "_", username.lower())
-        return self._users_dir / f"{safe}.json"
+    @staticmethod
+    def _normalize_username(username: str) -> str:
+        return (username or "").strip().lower()
 
     def _load_user(self, username: str) -> Optional[dict]:
-        path = self._user_path(username)
-
-        if not path.exists():
+        username = self._normalize_username(username)
+        if not username:
             return None
-
+        db = SessionLocal()
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning("[AUTH] Could not read user file %s: %s", path, e)
-            return None
+            row = db.get(UserRecord, username)
+            return row.to_dict() if row else None
+        finally:
+            db.close()
 
     def _save_user(self, username: str, data: dict) -> None:
-        path = self._user_path(username)
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        """Upsert — creates the row if new, otherwise overwrites the
+        fields present in `data`. Mirrors the old file-based _save_user,
+        which always wrote the whole record."""
+        username = self._normalize_username(username)
+        db = SessionLocal()
+        try:
+            row = db.get(UserRecord, username)
+            if row is None:
+                row = UserRecord(username=username)
+                db.add(row)
+            row.email = data.get("email", row.email or "")
+            row.display_name = data.get("display_name", row.display_name or username)
+            row.password_hash = data.get("password_hash", row.password_hash)
+            row.oauth = data.get("oauth", row.oauth or {})
+            row.created_at = data.get("created_at", row.created_at)
+            db.commit()
+        finally:
+            db.close()
 
     def _email_taken(self, email: str) -> bool:
-        email_lower = email.strip().lower()
+        return self._find_by_email(email) is not None
 
-        for path in self._users_dir.glob("*.json"):
-            if path.name.startswith("_"):  # skip _sessions.json etc
-                continue
-
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    record = json.load(f)
-                if (record.get("email") or "").strip().lower() == email_lower:
-                    return True
-            except Exception:
-                continue
-
-        return False
+    def _find_by_email(self, email: str) -> Optional[dict]:
+        email_lower = (email or "").strip().lower()
+        if not email_lower:
+            return None
+        db = SessionLocal()
+        try:
+            row = db.query(UserRecord).filter(UserRecord.email == email_lower).first()
+            return row.to_dict() if row else None
+        finally:
+            db.close()
 
     # ---- sessions (stateless JWTs — see class docstring) ----
 
@@ -134,32 +136,29 @@ class AuthService:
             return None
         except jwt.InvalidTokenError:
             # Covers a bad signature (forged/tampered token) and, notably,
-            # a token signed under a *previous* JWT_SECRET_KEY — e.g. one
-            # issued before this env var was set to a stable value. Those
-            # tokens fail closed here rather than raising, which is the
-            # correct behavior (a stale token should just look logged-out,
-            # not error the request).
+            # a token signed under a *previous* JWT_SECRET_KEY. Those
+            # tokens fail closed here rather than raising — a stale token
+            # should just look logged-out, not error the request.
             return None
         username = payload.get("username")
         if not username:
             return None
-        # A JWT alone can't be revoked (see class docstring), but it can
-        # still be checked against reality: if the account behind it has
-        # since been deleted, its old, not-yet-expired token must not go
-        # on "authenticating" as a username that no longer has an account
-        # — that used to be handled by revoking the token itself on
-        # delete_account(); an existence check accomplishes the same
-        # result without needing a server-side session list. Cheap: a
-        # single file-existence check, not a read of the file's contents.
-        if not self._user_path(username).exists():
-            return None
+        # A JWT alone can't be revoked, but it can still be checked against
+        # reality: if the account behind it has since been deleted, its
+        # old, not-yet-expired token must not go on "authenticating" as a
+        # username with no account. Cheap: a single primary-key lookup.
+        db = SessionLocal()
+        try:
+            if db.get(UserRecord, username) is None:
+                return None
+        finally:
+            db.close()
         return username
 
     def revoke_session(self, token: Optional[str]) -> None:
-        # Deliberately a no-op: a stateless JWT has no server-side record
-        # to remove. "Sign out" is handled entirely client-side (the
-        # browser discarding the token) — see logout() below and the
-        # class docstring for the tradeoff this accepts.
+        # Deliberately a no-op — see class docstring. The client is
+        # responsible for discarding the token; this call exists so
+        # /auth/logout has something to call and still returns cleanly.
         pass
 
     # ---- public API ----
@@ -188,32 +187,16 @@ class AuthService:
             raise AuthError("An account with that email already exists.")
 
         user_record = {
-            "username": username,
+            "username": self._normalize_username(username),
             "email": email,
             "display_name": (display_name or username).strip()[:60],
             "password_hash": self._hash_password(password),
+            "oauth": {},
             "created_at": time.time(),
         }
         self._save_user(username, user_record)
         logger.info("[AUTH] New user signed up: %s", username)
-        return self._create_session(username)
-
-    def _find_by_email(self, email: str) -> Optional[dict]:
-        email_lower = email.strip().lower()
-
-        for path in self._users_dir.glob("*.json"):
-            if path.name.startswith("_"):
-                continue
-
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    record = json.load(f)
-                if (record.get("email") or "").strip().lower() == email_lower:
-                    return record
-            except Exception:
-                continue
-
-        return None
+        return self._create_session(self._normalize_username(username))
 
     def login(self, username_or_email: str, password: str) -> str:
         identifier = (username_or_email or "").strip()
@@ -222,7 +205,7 @@ class AuthService:
         if not user_record and "@" in identifier:
             user_record = self._find_by_email(identifier)
 
-        if not user_record or not self._verify_password(password or "", user_record.get("password_hash", "")):
+        if not user_record or not self._verify_password(password or "", user_record.get("password_hash") or ""):
             raise AuthError("Incorrect username/email or password.")
 
         username = user_record["username"]
@@ -230,10 +213,7 @@ class AuthService:
         return self._create_session(username)
 
     def logout(self, token: Optional[str]) -> None:
-        # No-op — see revoke_session and the class docstring. The client
-        # is responsible for discarding the token; this call exists so
-        # the /auth/logout endpoint has something to call and still
-        # returns a clean success either way.
+        # No-op — see revoke_session and the class docstring.
         self.revoke_session(token)
 
     def get_profile(self, username: str) -> Optional[dict]:
@@ -245,7 +225,7 @@ class AuthService:
         return {
             "username": user_record["username"],
             "email": user_record.get("email", ""),
-            "display_name": user_record.get("display_name", user_record["username"]),
+            "display_name": user_record.get("display_name") or user_record["username"],
             "created_at": user_record.get("created_at"),
         }
 
@@ -255,7 +235,7 @@ class AuthService:
         if not user_record:
             raise AuthError("Account not found.")
 
-        if not self._verify_password(current_password or "", user_record.get("password_hash", "")):
+        if not self._verify_password(current_password or "", user_record.get("password_hash") or ""):
             raise AuthError("Current password is incorrect.")
 
         if len(new_password or "") < 8:
@@ -273,23 +253,28 @@ class AuthService:
 
         has_password = bool(user_record.get("password_hash"))
         if has_password:
-            if not self._verify_password(password or "", user_record.get("password_hash", "")):
+            if not self._verify_password(password or "", user_record.get("password_hash") or ""):
                 raise AuthError("Incorrect password.")
         # OAuth-only accounts (no local password) can delete without one —
-        # the caller already authenticated via a valid session token to
-        # reach this endpoint at all.
+        # the caller already authenticated via a valid session token.
 
         # No explicit session revocation needed: get_username_for_token()
-        # now checks the account still exists on disk before trusting any
-        # token's claimed username, so any of this user's existing tokens
-        # stop authenticating the instant the file below is removed.
-        path = self._user_path(username)
-
+        # checks the account still exists before trusting any token's
+        # claimed username, so any existing token for this user stops
+        # authenticating the instant the row below is deleted.
+        username_norm = self._normalize_username(username)
+        db = SessionLocal()
         try:
-            path.unlink(missing_ok=True)
+            row = db.get(UserRecord, username_norm)
+            if row is not None:
+                db.delete(row)
+                db.commit()
         except Exception as e:
-            logger.error("[AUTH] Could not delete user file for %s: %s", username, e)
+            db.rollback()
+            logger.error("[AUTH] Could not delete user row for %s: %s", username, e)
             raise AuthError("Could not delete account. Please try again.")
+        finally:
+            db.close()
 
         logger.info("[AUTH] Account deleted: %s", username)
 
@@ -324,27 +309,29 @@ class AuthService:
         email alone, since emails can change or be reused."""
         provider = provider.strip().lower()
 
-        # 1. Already linked? Match on provider identity, not email.
-        for path in self._users_dir.glob("*.json"):
-            if path.name.startswith("_"):
-                continue
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    record = json.load(f)
-            except Exception:
-                continue
-            linked = record.get("oauth", {})
-            if linked.get(provider) == provider_user_id:
-                username = record["username"]
-                logger.info("[AUTH] OAuth login (%s) for existing linked user: %s", provider, username)
-                return self._create_session(username)
+        db = SessionLocal()
+        try:
+            # 1. Already linked? Match on provider identity, not email.
+            #    oauth is a JSON column — filter in Python since JSON
+            #    containment operators differ across DB backends
+            #    (Postgres vs SQLite, the local-dev fallback).
+            all_users = db.query(UserRecord).all()
+            for row in all_users:
+                linked = row.oauth or {}
+                if linked.get(provider) == provider_user_id:
+                    logger.info("[AUTH] OAuth login (%s) for existing linked user: %s", provider, row.username)
+                    return self._create_session(row.username)
+        finally:
+            db.close()
 
         # 2. Not linked yet — does an account with this email already exist?
         #    If so, link this provider to it rather than creating a duplicate.
         existing = self._find_by_email(email) if email else None
         if existing:
             username = existing["username"]
-            existing.setdefault("oauth", {})[provider] = provider_user_id
+            oauth = existing.get("oauth") or {}
+            oauth[provider] = provider_user_id
+            existing["oauth"] = oauth
             self._save_user(username, existing)
             logger.info("[AUTH] Linked %s to existing account: %s", provider, username)
             return self._create_session(username)
