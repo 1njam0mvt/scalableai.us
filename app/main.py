@@ -1443,7 +1443,7 @@ VALID_TTS_VOICES = {
     "en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-US-EricNeural",
     "en-US-MichelleNeural", "en-US-RogerNeural", "en-AU-NatashaNeural", "en-AU-WilliamNeural",
     "en-IN-NeerjaNeural", "en-IN-PrabhatNeural",
-    ELEVENLABS_VOICE_KEY,  # "elevenlabs:4LNou7KOJvqP5kofkENp" — the ScalableAI voice
+    ELEVENLABS_VOICE_KEY,  # "elevenlabs:XDjCphZxyyr0PBj2ZWcK" — the ScalableAI voice
 }
 
 def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, tts_voice: Optional[str] = None):
