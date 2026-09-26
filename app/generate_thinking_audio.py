@@ -59,7 +59,13 @@ def generate_one_elevenlabs(text: str) -> bytes:
         },
         timeout=30,
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        # raise_for_status() alone only gives "401 Client Error: Unauthorized
+        # for url: ..." — it drops the response body, which is exactly where
+        # ElevenLabs puts the actual reason (invalid key, quota exceeded,
+        # voice_id not found under this account, etc). Surfacing resp.text
+        # here is the difference between "it failed" and knowing why.
+        raise RuntimeError(f"ElevenLabs API error {resp.status_code}: {resp.text[:500]}")
     return resp.content
 
 
@@ -106,6 +112,15 @@ async def main():
 
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Print what's actually configured before making any calls — a wrong or
+    # mismatched key/voice pair (e.g. a valid API key from a different
+    # ElevenLabs account than the one the custom voice was cloned under)
+    # fails every request the same way, so this is the fastest way to rule
+    # that class of bug in or out before reading further output.
+    masked_key = f"{ELEVENLABS_API_KEY[:4]}...{ELEVENLABS_API_KEY[-4:]}" if ELEVENLABS_API_KEY else "(not set)"
+    print(f"ELEVENLABS_API_KEY: {masked_key}")
+    print(f"ELEVENLABS_VOICE_ID: {ELEVENLABS_VOICE_ID or '(not set)'}")
+
     for f in AUDIO_DIR.glob("followup_*.mp3"):
 
         try:
@@ -134,5 +149,3 @@ if __name__ == "__main__":
         exit_code = 130
 
     sys.exit(exit_code)
-    
-            
