@@ -5,6 +5,24 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = PROJECT_ROOT / "frontend" / "audio"
 
+# When run as `python app/generate_thinking_audio.py`, sys.path[0] is the
+# app/ folder, NOT the project root — so `from config import ...` below
+# raised ModuleNotFoundError (an ImportError subclass) and got silently
+# swallowed by the except ImportError, leaving the ElevenLabs key as None
+# and every clip falling back to edge-tts/Ryan. Put the project root on
+# the path first so config.py (which lives at the root) is importable
+# no matter which directory the script is launched from.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Without this, ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID below read as
+# empty and every clip silently fell back to edge-tts (Ryan) even with a
+# perfectly valid key sitting in .env — which is exactly how the thinking
+# audio ended up in the wrong voice. python-dotenv is already a project
+# dependency (config.py uses the same mechanism).
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 STARTER_PHRASES = [
     ("starter_1", "One second sir I am updating your request."),
     ("starter_2", "Sure sir i am searching that if i found then i get back on it."),
