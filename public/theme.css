@@ -73,6 +73,7 @@ body.light-theme .theme-toggle:hover {
 /* ---- Footer ---- */
 
 body.light-theme footer {
+    background: #f5f5f7;
     border-top-color: var(--line-strong);
 }
 
@@ -100,4 +101,50 @@ body.light-theme .footer-copy {
    contrast against white. */
 body.light-theme footer .brand {
     color: #131316;
+}
+
+/* ---- Cookie consent banner ---- */
+/* The banner's own base CSS hardcodes a dark background (#17171c) with
+   var(--ink-0)/var(--ink-1) text, so in light mode the text variables turn
+   near-black and become invisible against that still-dark background.
+   Override both the background and every text/border color explicitly. */
+
+body.light-theme .cookie-banner {
+    background: #ffffff;
+    border-color: var(--line-strong);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+}
+
+body.light-theme .cookie-banner-copy strong {
+    color: #131316;
+}
+
+body.light-theme .cookie-banner-copy p {
+    color: #46464e;
+}
+
+body.light-theme .cookie-banner-copy a {
+    color: #131316;
+    text-decoration: underline;
+}
+
+body.light-theme .cookie-banner-actions button {
+    border: 1.5px solid #131316;
+    background: transparent;
+    color: #131316;
+}
+
+body.light-theme .cookie-banner-actions button:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+body.light-theme .cookie-banner-actions .cookie-accept {
+    background: #131316;
+    color: #ffffff;
+    border-color: #131316;
+}
+
+body.light-theme .cookie-banner-actions .cookie-accept:hover {
+    background: #2a2a30;
+    border-color: #2a2a30;
 }
