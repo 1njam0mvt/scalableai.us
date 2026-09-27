@@ -71,41 +71,63 @@ body.light-theme .theme-toggle:hover {
 }
 
 /* ---- Footer ---- */
-/* Instead of a flat white slab, use a soft brand-tinted gradient and a
-   violet-to-cyan accent line on top, echoing the site's own gradient
-   accents so light mode still feels like the same product. */
+/* The dark theme's footer has an ambient two-tone glow via ::before
+   (inset: 0, diagonal violet/cyan gradient). Our earlier light-mode
+   ::before overrode that with a flat 2px line, killing the glow.
+   Rebuild the same ambient-glow approach, tuned for a light background:
+   soft, larger, blurred color blobs instead of a flat overlay. */
 
 body.light-theme footer {
     position: relative;
-    background: linear-gradient(180deg, #fbfaff, #f3f2fb);
-    border-top: 1px solid transparent;
+    overflow: hidden;
+    background: linear-gradient(180deg, #fdfcff, #f6f4fc);
 }
 
 body.light-theme footer::before {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--violet), var(--cyan));
-    opacity: 0.7;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(76, 214, 233, 0.10), transparent 45%, rgba(156, 107, 255, 0.14));
+}
+
+/* Soft blurred glow blobs for real depth, echoing the brand gradient. */
+body.light-theme footer::after {
+    content: "";
+    position: absolute;
+    inset: -40% -10% auto -10%;
+    height: 220px;
+    pointer-events: none;
+    background:
+        radial-gradient(closest-side, rgba(156, 107, 255, 0.30), transparent),
+        radial-gradient(closest-side, rgba(76, 214, 233, 0.24), transparent);
+    background-position: 15% 0%, 85% 0%;
+    background-repeat: no-repeat;
+    background-size: 55% 100%, 55% 100%;
+    filter: blur(28px);
+}
+
+body.light-theme footer .wrap {
+    position: relative;
+    z-index: 1;
 }
 
 /* Footer links: soft violet-tinted pill at rest, solid brand-gradient fill
    on hover, so the footer doesn't wash out against a white background. */
 body.light-theme .footer-links a {
     color: #4a3a80;
-    background: rgba(156, 107, 255, 0.08);
-    border: 1px solid rgba(156, 107, 255, 0.28);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(156, 107, 255, 0.32);
     border-radius: 999px;
     padding: 5px 12px;
+    backdrop-filter: blur(6px);
 }
 
 body.light-theme .footer-links a:hover {
     background: linear-gradient(135deg, var(--violet), var(--cyan));
     border-color: transparent;
     color: #ffffff;
+    box-shadow: 0 4px 16px rgba(156, 107, 255, 0.35);
 }
 
 body.light-theme .footer-disclaimer,
@@ -117,6 +139,7 @@ body.light-theme .footer-copy {
    black, tying it back to the site's gradient identity. */
 body.light-theme footer .brand {
     color: #6b46e5;
+    text-shadow: 0 0 24px rgba(156, 107, 255, 0.25);
 }
 
 /* ---- Cookie consent banner ---- */
