@@ -16,20 +16,37 @@
         toggle.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
     }
 
-    var saved = null;
-    try { saved = localStorage.getItem(STORAGE_KEY); } catch (error) { }
-    applyTheme(saved === 'light' ? 'light' : 'dark');
+    function getSaved() {
+        var saved = null;
+        try { saved = localStorage.getItem(STORAGE_KEY); } catch (error) { }
+        return saved === 'light' ? 'light' : 'dark';
+    }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function init() {
+        applyTheme(getSaved());
+
         var toggle = document.querySelector('.theme-toggle');
         if (!toggle) return;
-
-        applyTheme(saved === 'light' ? 'light' : 'dark');
 
         toggle.addEventListener('click', function () {
             var nowLight = !document.body.classList.contains('light-theme');
             applyTheme(nowLight ? 'light' : 'dark');
             try { localStorage.setItem(STORAGE_KEY, nowLight ? 'light' : 'dark'); } catch (error) { }
         });
-    });
+    }
+
+    // Apply theme immediately (avoids a flash of the wrong theme).
+    if (document.body) {
+        applyTheme(getSaved());
+    }
+
+    // Attach the click handler once the DOM is ready. If this script is
+    // loaded at the end of <body> (as intended), the DOM is already parsed
+    // and DOMContentLoaded may have already fired, so check readyState
+    // instead of only listening for the event.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 }());
