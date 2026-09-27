@@ -35,15 +35,14 @@
         });
     }
 
-    // Apply theme immediately (avoids a flash of the wrong theme).
+    // Apply immediately to avoid a flash of the wrong theme.
     if (document.body) {
         applyTheme(getSaved());
     }
 
-    // Attach the click handler once the DOM is ready. If this script is
-    // loaded at the end of <body> (as intended), the DOM is already parsed
-    // and DOMContentLoaded may have already fired, so check readyState
-    // instead of only listening for the event.
+    // If this script runs after the DOM is already parsed (e.g. placed at
+    // the end of <body>), DOMContentLoaded may already have fired, so check
+    // readyState instead of relying solely on the event.
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
