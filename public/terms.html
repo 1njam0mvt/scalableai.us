@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -21,6 +21,9 @@
     <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
     <link rel="shortcut icon" href="favicon.ico" />
     <meta name="robots" content="noindex, follow" />
+    <script>
+        (function () { try { var t = localStorage.getItem('scalable_theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); } })();
+    </script>
     <style>
         :root {
             --bg-0: #09090b;
@@ -449,6 +452,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 
 <body>
@@ -463,13 +467,20 @@
                 <a href="/terms.html" aria-current="page">Terms</a>
                 <a href="/privacy.html">Privacy</a>
             </nav>
-            <a href="/" class="back-link">← Back to home</a>
+            <div class="header-actions">
+                <button type="button" class="theme-toggle" title="Toggle light / dark mode" aria-pressed="false" aria-label="Switch to light theme">
+                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <a href="/" class="back-link">← Back to home</a>
+            </div>
         </div>
     </header>
 
     <main class="wrap">
         <h1>Terms of Use</h1>
-        <p class="updated">Last updated: September 26, 2026</p>
+        <p class="updated">Last updated: September 2, 2026</p>
 
         <a href="#" <strong>Template notice:</strong> This is a standard starting template, not a finished legal
             document.
@@ -599,6 +610,7 @@
     </footer>
     <script>document.querySelectorAll('.copyright-year').forEach(function (el) { el.textContent = new Date().getFullYear(); });</script>
     <script src="/cookie-consent.js"></script>
+    <script src="theme.js"></script>
 </body>
 
 </html>
