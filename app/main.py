@@ -2153,7 +2153,7 @@ async def theme_css():
     return FileResponse(
         _public_dir / "theme.css",
         media_type="text/css",
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={"Cache-Control": "no-cache, must-revalidate"},
     )
 
 @app.get("/theme-toggle.js", include_in_schema=False)
@@ -2161,7 +2161,7 @@ async def theme_toggle_script():
     return FileResponse(
         _public_dir / "theme-toggle.js",
         media_type="application/javascript",
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={"Cache-Control": "no-cache, must-revalidate"},
     )
 
 @app.get("/og-banner.png", include_in_schema=False)
