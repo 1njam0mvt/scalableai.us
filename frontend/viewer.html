@@ -5,6 +5,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScalableAI — Viewer</title>
+    <script>
+        /* Apply the saved theme before first paint (same key as the main app)
+           so the page never flashes dark when the user chose light. */
+        (function () {
+            var t = 'dark';
+            try { t = localStorage.getItem('scalable_theme') === 'light' ? 'light' : 'dark'; } catch (e) { }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
     <style>
         :root {
             --bg: #0a0a1a;
@@ -18,6 +27,30 @@
             --danger: #ff6b6b;
             --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
             --radius: 16px;
+            --topbar-bg: rgba(18, 18, 42, 0.8);
+            --btn-bg: rgba(255, 255, 255, 0.05);
+            --btn-bg-hover: rgba(255, 255, 255, 0.1);
+            --shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            color-scheme: dark;
+        }
+
+        /* Light theme: same variable names, so every component that already
+           uses var(--bg) / var(--surface) / var(--text)... follows along. */
+        [data-theme="light"] {
+            --bg: #f4f4f8;
+            --surface: #ffffff;
+            --border: rgba(0, 0, 0, 0.10);
+            --text: #16161d;
+            --text-dim: #5d5b70;
+            --accent: #6b57e8;
+            --accent-hover: #5a47d6;
+            --success: #12968c;
+            --danger: #d63c3c;
+            --topbar-bg: rgba(255, 255, 255, 0.85);
+            --btn-bg: rgba(0, 0, 0, 0.04);
+            --btn-bg-hover: rgba(0, 0, 0, 0.09);
+            --shadow: 0 8px 32px rgba(20, 20, 60, 0.10);
+            color-scheme: light;
         }
 
         * {
@@ -53,7 +86,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 16px 28px;
-            background: rgba(18, 18, 42, 0.8);
+            background: var(--topbar-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border);
@@ -72,8 +105,76 @@
 
         .topbar-actions {
             display: flex;
+            align-items: center;
             gap: 8px;
         }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Round theme toggle. Inverse contrast so it always pops:
+           dark mode -> white circle with dark icon,
+           light mode -> black circle with white icon. */
+        .theme-toggle {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            background: #ffffff;
+            color: #12122a;
+            cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 16px rgba(124, 106, 239, 0.28);
+            transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.08) rotate(12deg);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 6px 22px rgba(124, 106, 239, 0.45);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.94);
+        }
+
+        .theme-toggle:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+        }
+
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+            transition: transform 0.35s ease, opacity 0.25s ease;
+        }
+
+        /* Show the icon for the mode you would switch TO:
+           dark mode shows a sun, light mode shows a moon. */
+        .theme-toggle .icon-moon { display: none; }
+        .theme-toggle .icon-sun  { display: block; }
+
+        [data-theme="light"] .theme-toggle {
+            background: #16161d;
+            color: #ffffff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(20, 20, 60, 0.28);
+        }
+
+        [data-theme="light"] .theme-toggle:hover {
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 6px 22px rgba(20, 20, 60, 0.4);
+        }
+
+        [data-theme="light"] .theme-toggle .icon-moon { display: block; }
+        [data-theme="light"] .theme-toggle .icon-sun  { display: none; }
 
         .btn {
             display: inline-flex;
@@ -82,7 +183,7 @@
             padding: 8px 18px;
             border-radius: 10px;
             border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--btn-bg);
             color: var(--text-dim);
             font-family: var(--font);
             font-size: 0.8rem;
@@ -92,7 +193,7 @@
         }
 
         .btn:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--btn-bg-hover);
             color: var(--text);
         }
 
@@ -186,7 +287,7 @@
             overflow: hidden;
             background: var(--surface);
             border: 1px solid var(--border);
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--shadow);
         }
 
         .image-frame img {
@@ -348,6 +449,20 @@
                 padding: 12px 16px;
             }
 
+            .topbar-right {
+                gap: 8px;
+            }
+
+            .theme-toggle {
+                width: 34px;
+                height: 34px;
+            }
+
+            .theme-toggle svg {
+                width: 16px;
+                height: 16px;
+            }
+
             .viewer-main {
                 padding: 20px 16px;
                 max-width: 100%;
@@ -373,10 +488,30 @@
         @media (max-width: 480px) {
             .topbar {
                 padding: 10px 12px;
+                gap: 8px;
+            }
+
+            .topbar-right {
+                gap: 6px;
+                min-width: 0;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .theme-toggle {
+                width: 32px;
+                height: 32px;
+            }
+
+            .theme-toggle svg {
+                width: 15px;
+                height: 15px;
             }
 
             .topbar-actions {
                 gap: 4px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
             }
 
             .viewer-main {
@@ -409,7 +544,21 @@
 <body>
     <div class="topbar">
         <span class="topbar-title">ScalableAI</span>
-        <div class="topbar-actions" id="topbar-actions"></div>
+        <div class="topbar-right">
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to light theme"
+                title="Toggle theme">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4.5" />
+                    <path d="M12 2v2.2M12 19.8V22M4.93 4.93l1.56 1.56M17.51 17.51l1.56 1.56M2 12h2.2M19.8 12H22M4.93 19.07l1.56-1.56M17.51 6.49l1.56-1.56" />
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+            </button>
+            <div class="topbar-actions" id="topbar-actions"></div>
+        </div>
     </div>
 
     <div class="viewer-main" id="viewer-main">
@@ -420,6 +569,40 @@
         </div>
     </div>
     <div class="toast" id="toast"></div>
+    <script>
+        /* Theme toggle. Shares the main app's storage key ('scalable_theme')
+           and the data-theme attribute, so choosing light in the chat opens
+           the viewer in light too, and vice versa. */
+        (function () {
+            var KEY = 'scalable_theme';
+            var root = document.documentElement;
+            var btn = document.getElementById('theme-toggle');
+            if (!btn) return;
+
+            function current() {
+                return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+            }
+            function apply(theme) {
+                root.setAttribute('data-theme', theme);
+                btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f4f8' : '#0a0a1a');
+            }
+
+            apply(current());
+
+            btn.addEventListener('click', function () {
+                var next = current() === 'light' ? 'dark' : 'light';
+                apply(next);
+                try { localStorage.setItem(KEY, next); } catch (e) { }
+            });
+
+            // Keep in sync if the theme is changed in another tab/window.
+            window.addEventListener('storage', function (e) {
+                if (e.key === KEY) apply(e.newValue === 'light' ? 'light' : 'dark');
+            });
+        })();
+    </script>
     <script src="/api-config.js"></script>
     <script>
         (function () {
