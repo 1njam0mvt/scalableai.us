@@ -71,89 +71,94 @@ body.light-theme .theme-toggle:hover {
 }
 
 /* ---- Footer ---- */
-/* Solid, flat, high-contrast: no gradients, no glow, no transparency.
-   The footer must read as a clean light section, not a leftover dark
-   panel from the base theme. */
+/* Aggressive overrides: solid light background, dark text, no gradients,
+   no dark glow layers. !important is used deliberately so the page's own
+   dark-theme rules (several duplicates per file) can never win. */
 
 body.light-theme footer {
-    background: #f8f9fa;
-    border-top: 1px solid var(--line-strong);
+    background: #f8f9fa !important;
+    background-image: none !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.14) !important;
 }
 
 body.light-theme footer::before,
 body.light-theme footer::after {
-    display: none;
+    display: none !important;
+    background: none !important;
 }
 
-/* Footer links: solid black border and black text at rest, solid black
-   fill with white text on hover, exactly mirroring the header nav pills. */
+body.light-theme footer,
+body.light-theme footer p,
+body.light-theme footer span,
+body.light-theme .footer-disclaimer,
+body.light-theme .footer-copy {
+    color: #3a3a42 !important;
+}
+
+/* Footer pill links: black border + black text, solid black on hover */
 body.light-theme .footer-links a {
-    color: #131316;
-    background: transparent;
-    border: 1.5px solid #131316;
+    color: #131316 !important;
+    background: transparent !important;
+    border: 1.5px solid #131316 !important;
     border-radius: 999px;
     padding: 5px 12px;
 }
 
 body.light-theme .footer-links a:hover {
-    background: #131316;
-    border-color: #131316;
-    color: #ffffff;
+    background: #131316 !important;
+    border-color: #131316 !important;
+    color: #ffffff !important;
 }
 
-body.light-theme .footer-disclaimer,
-body.light-theme .footer-copy {
-    color: #46464e;
-}
-
-/* Footer "brand" wordmark: solid dark ink, no glow/shadow. */
 body.light-theme footer .brand {
-    color: #131316;
+    color: #131316 !important;
+    text-shadow: none !important;
 }
 
 /* ---- Cookie consent banner ---- */
-/* The banner's own base CSS hardcodes a dark background (#17171c) with
-   var(--ink-0)/var(--ink-1) text, so in light mode the text variables turn
-   near-black and become invisible against that still-dark background.
-   Give it a solid light background, dark readable text, and the same
-   high-contrast black-bordered buttons used everywhere else in light mode. */
+/* The base CSS hardcodes a dark background (#17171c) with variable-based
+   text colours that flip to near-black in light mode = dark box, unreadable
+   text. Force a solid white card with black text and clear buttons. */
 
 body.light-theme .cookie-banner {
-    background: #ffffff;
-    border: 1px solid var(--line-strong);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+    background: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid rgba(0, 0, 0, 0.14) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18) !important;
 }
 
-body.light-theme .cookie-banner-copy strong {
-    color: #131316;
+body.light-theme .cookie-banner,
+body.light-theme .cookie-banner * {
+    color: #131316 !important;
 }
 
 body.light-theme .cookie-banner-copy p {
-    color: #46464e;
+    color: #3a3a42 !important;
 }
 
 body.light-theme .cookie-banner-copy a {
-    color: #131316;
+    color: #131316 !important;
     text-decoration: underline;
 }
 
+/* Secondary buttons: transparent with black border */
 body.light-theme .cookie-banner-actions button {
-    border: 1.5px solid #131316;
-    background: transparent;
-    color: #131316;
+    background: transparent !important;
+    border: 1.5px solid #131316 !important;
+    color: #131316 !important;
 }
 
 body.light-theme .cookie-banner-actions button:hover {
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.07) !important;
 }
 
-body.light-theme .cookie-banner-actions .cookie-accept {
-    background: #131316;
-    color: #ffffff;
-    border-color: #131316;
+/* Primary button: solid black, white text */
+body.light-theme .cookie-banner .cookie-banner-actions button.cookie-accept {
+    background: #131316 !important;
+    border-color: #131316 !important;
+    color: #ffffff !important;
 }
 
-body.light-theme .cookie-banner-actions .cookie-accept:hover {
-    background: #2a2a30;
-    border-color: #2a2a30;
+body.light-theme .cookie-banner .cookie-banner-actions button.cookie-accept:hover {
+    background: #2a2a30 !important;
 }
