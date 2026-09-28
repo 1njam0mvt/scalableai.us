@@ -4968,6 +4968,60 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     border-left-color: var(--line);
 }
 
+/* ---- search results header ---- */
+/* Title on the left, close button pinned to the right in a shaded square
+   (same look as .btn-icon / the "+" attach button) so it sits neatly in
+   the header instead of falling back to the browser's default button. */
+.search-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 14px 16px 0 20px;
+}
+
+.search-results-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ink-0);
+}
+
+.search-results-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: var(--r-sm);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: all var(--fast) var(--ease);
+}
+
+.search-results-close svg {
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
+.search-results-close:hover {
+    color: var(--ink-0);
+    background: var(--bg-3);
+    border-color: var(--line-strong);
+}
+
+.search-results-close:focus-visible {
+    outline: 2px solid var(--accent-line);
+    outline-offset: 2px;
+}
+
 /* ---- search results ---- */
 .search-results-query {
     margin: 16px 20px 0;
