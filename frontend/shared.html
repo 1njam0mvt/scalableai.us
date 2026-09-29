@@ -379,7 +379,7 @@
         .shared-footer {
             max-width: 760px;
             margin: 0 auto;
-            padding: 20px 20px 40px;
+            padding: 14px 20px 40px;
             text-align: center;
             font-size: 12px;
             color: var(--ink-2);
@@ -387,6 +387,105 @@
 
         .shared-footer a {
             color: var(--ink-1);
+        }
+
+        /* ---- Continue-the-conversation chat bar ---- */
+        .shared-composer-wrap {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 8px 20px 0;
+        }
+
+        .shared-composer-hint {
+            font-size: 12px;
+            color: var(--ink-2);
+            text-align: center;
+            margin: 0 0 10px;
+        }
+
+        .shared-composer {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            background: var(--bg-1);
+            border: 1px solid var(--line-strong);
+            border-radius: 20px;
+            padding: 8px 8px 8px 16px;
+        }
+
+        .shared-composer-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-height: 120px;
+            resize: none;
+            border: none;
+            background: transparent;
+            color: var(--ink-0);
+            font: inherit;
+            font-size: 14.5px;
+            line-height: 1.4;
+            padding: 6px 0;
+        }
+
+        .shared-composer-input:focus {
+            outline: none;
+        }
+
+        .shared-composer-input::placeholder {
+            color: var(--ink-2);
+        }
+
+        .shared-composer-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+        }
+
+        .shared-composer-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--ink-2);
+            cursor: pointer;
+            transition: background 150ms ease, color 150ms ease;
+        }
+
+        .shared-composer-btn:hover {
+            background: var(--bg-2);
+            color: var(--ink-0);
+        }
+
+        .shared-composer-btn svg {
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+        }
+
+        .shared-composer-btn.mic-active {
+            color: #ff5c5c;
+            background: rgba(255, 92, 92, 0.12);
+        }
+
+        .shared-composer-btn.send-btn {
+            background: var(--accent-grad);
+            color: #fff;
+        }
+
+        .shared-composer-btn.send-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .shared-composer-btn.send-btn:disabled {
+            opacity: 0.4;
+            cursor: default;
+            filter: none;
         }
 
         @media (max-width: 560px) {
@@ -449,6 +548,43 @@
         </div>
     </main>
 
+    <div class="shared-composer-wrap" id="shared-composer-wrap" style="display:none;">
+        <p class="shared-composer-hint">Have your own question about this? Start a new conversation.</p>
+        <div class="shared-composer">
+            <textarea id="shared-composer-input" class="shared-composer-input" rows="1"
+                placeholder="Ask ScalableAI anything…"></textarea>
+            <div class="shared-composer-actions">
+                <button type="button" id="shared-mic-btn" class="shared-composer-btn" title="Speak your message"
+                    aria-label="Speak your message">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                </button>
+                <button type="button" id="shared-speaker-btn" class="shared-composer-btn"
+                    title="Read your message aloud" aria-label="Read your message aloud">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                        <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                    </svg>
+                </button>
+                <button type="button" id="shared-send-btn" class="shared-composer-btn send-btn" title="Send"
+                    aria-label="Send" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="shared-footer" id="shared-footer" style="display:none;">
         Shared via <a href="/app/">ScalableAI</a> — Just A Rather Very Intelligent System
     </div>
@@ -508,7 +644,7 @@
             return card;
         }
 
-        function renderMessage(msg) {
+        function renderMessage(msg, viewerInitial) {
             const wrap = document.createElement('div');
             wrap.className = 'message ' + (msg.role === 'assistant' ? 'assistant' : 'user');
             const avatar = document.createElement('div');
@@ -517,7 +653,9 @@
                 avatar.innerHTML = '<img src="/scalable-logo.png" alt="Scalable">';
             } else {
                 avatar.className = 'msg-avatar user-avatar';
-                avatar.textContent = 'U';
+                // Uses the logged-in viewer's own initial (from their email)
+                // when known; anonymous visitors just see a generic "U".
+                avatar.textContent = viewerInitial || 'U';
             }
             const body = document.createElement('div');
             body.className = 'msg-body';
@@ -592,7 +730,8 @@
                 document.getElementById('shared-owner').textContent = data.owner ? ('Shared by ' + data.owner) : '';
                 const messagesEl = document.getElementById('shared-messages');
                 const messageList = data.messages || [];
-                messageList.forEach(msg => messagesEl.appendChild(renderMessage(msg)));
+                const viewerInitial = data.viewer_initial || null;
+                messageList.forEach(msg => messagesEl.appendChild(renderMessage(msg, viewerInitial)));
                 const countEl = document.getElementById('shared-msg-count');
                 if (countEl && messageList.length) {
                     countEl.textContent = messageList.length + (messageList.length === 1 ? ' message' : ' messages');
@@ -600,6 +739,7 @@
                 }
                 document.getElementById('shared-loading').style.display = 'none';
                 messagesEl.style.display = 'block';
+                document.getElementById('shared-composer-wrap').style.display = 'block';
                 document.getElementById('shared-footer').style.display = 'block';
             } catch (err) {
                 showState(
@@ -611,6 +751,106 @@
         }
 
         loadSharedChat();
+    </script>
+
+    <script>
+        /* Continue-the-conversation composer. This page never sends a
+           message itself — it hands the typed text to the main app, which
+           starts a brand new chat with it. Mic input and read-aloud use the
+           browser's own Web Speech API, same as the main app. */
+        (function () {
+            const input = document.getElementById('shared-composer-input');
+            const micBtn = document.getElementById('shared-mic-btn');
+            const speakerBtn = document.getElementById('shared-speaker-btn');
+            const sendBtn = document.getElementById('shared-send-btn');
+            if (!input || !sendBtn) return;
+
+            function autoGrow() {
+                input.style.height = 'auto';
+                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+            }
+
+            function refreshSendState() {
+                sendBtn.disabled = input.value.trim().length === 0;
+            }
+
+            input.addEventListener('input', function () {
+                autoGrow();
+                refreshSendState();
+            });
+
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    goToNewChat();
+                }
+            });
+
+            function goToNewChat() {
+                const text = input.value.trim();
+                if (!text) return;
+                try { sessionStorage.setItem('scalable_pending_prompt', text); } catch (e) { }
+                window.location.href = '/app/';
+            }
+
+            sendBtn.addEventListener('click', goToNewChat);
+
+            // ---- Mic (speech-to-text), same API the main app uses ----
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognizer = null;
+            let listening = false;
+
+            if (SR) {
+                recognizer = new SR();
+                recognizer.continuous = false;
+                recognizer.interimResults = false;
+                recognizer.lang = 'en-US';
+
+                recognizer.onresult = function (event) {
+                    const transcript = event.results[0][0].transcript;
+                    input.value = (input.value ? input.value + ' ' : '') + transcript;
+                    autoGrow();
+                    refreshSendState();
+                };
+                recognizer.onend = function () {
+                    listening = false;
+                    micBtn.classList.remove('mic-active');
+                };
+                recognizer.onerror = function () {
+                    listening = false;
+                    micBtn.classList.remove('mic-active');
+                };
+
+                micBtn.addEventListener('click', function () {
+                    if (listening) {
+                        recognizer.stop();
+                        return;
+                    }
+                    try {
+                        recognizer.start();
+                        listening = true;
+                        micBtn.classList.add('mic-active');
+                    } catch (e) { }
+                });
+            } else {
+                micBtn.disabled = true;
+                micBtn.title = 'Voice input is not supported in this browser';
+            }
+
+            // ---- Speaker (read the typed message aloud) ----
+            if ('speechSynthesis' in window) {
+                speakerBtn.addEventListener('click', function () {
+                    const text = input.value.trim();
+                    if (!text) return;
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    window.speechSynthesis.speak(utterance);
+                });
+            } else {
+                speakerBtn.disabled = true;
+                speakerBtn.title = 'Read-aloud is not supported in this browser';
+            }
+        })();
     </script>
 
 </body>
