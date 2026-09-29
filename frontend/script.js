@@ -3297,7 +3297,26 @@ function scalableInitAuthGate() {
         if (!appStarted) {
             appStarted = true;
             init();
+            runPendingSharedPrompt();
         }
+    }
+
+    // A visitor typing into the chat bar on a /shared/... page stores what
+    // they typed here, then this page picks it up once and sends it as the
+    // first message of a brand new chat. sessionStorage.removeItem happens
+    // immediately so a refresh never re-sends it.
+    function runPendingSharedPrompt() {
+        let pending = null;
+        try {
+            pending = sessionStorage.getItem('scalable_pending_prompt');
+            sessionStorage.removeItem('scalable_pending_prompt');
+        } catch (e) { return; }
+        if (!pending) return;
+        setTimeout(function () {
+            try {
+                if (typeof sendMessage === 'function') sendMessage(pending);
+            } catch (e) { }
+        }, 300);
     }
 
     async function trySubmit() {
