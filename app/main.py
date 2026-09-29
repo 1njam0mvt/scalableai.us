@@ -2014,9 +2014,23 @@ async def get_shared_chat_data(share_id: str, viewer_username: Optional[str] = D
         profile = auth_service.get_profile(owner_username)
         if profile:
             owner_display = profile.get("display_name") or owner_username
+
+    # Identify the *viewer* (not the chat owner) so the page can show their
+    # own initial on their message bubbles instead of a generic "U". Only
+    # available when the visitor is logged in and sent a valid token;
+    # anonymous visitors get None and the frontend falls back to "U".
+    viewer_initial = None
+    if viewer_username and auth_service:
+        viewer_profile = auth_service.get_profile(viewer_username)
+        if viewer_profile:
+            source = (viewer_profile.get("email") or viewer_profile.get("display_name") or viewer_username).strip()
+            if source:
+                viewer_initial = source[0].upper()
+
     return {
         "title": meta.get("title") or "Shared chat",
         "owner": owner_display,
+        "viewer_initial": viewer_initial,
         "messages": [
             {"role": msg.role, "content": msg.content, "artifacts": msg.artifacts or []}
             for msg in messages
