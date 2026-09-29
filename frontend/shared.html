@@ -3,6 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QW43LYP6E6"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-QW43LYP6E6');
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Shared chat · ScalableAI</title>
@@ -105,6 +114,32 @@
         .shared-owner {
             font-size: 12px;
             color: var(--ink-2);
+        }
+
+        .shared-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .shared-msg-count {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-2);
+            background: var(--bg-2);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 2px 9px;
+            white-space: nowrap;
+        }
+
+        .shared-msg-count.visible {
+            display: inline-flex;
         }
 
         .shared-header-actions {
@@ -374,10 +409,13 @@
 
     <header class="shared-header">
         <div class="shared-header-left">
-            <img class="shared-logo" src="scalable-logo.png" alt="ScalableAI">
+            <img class="shared-logo" src="/scalable-logo.png" alt="ScalableAI">
             <div class="shared-header-text">
                 <div class="shared-title" id="shared-title">Shared chat</div>
-                <div class="shared-owner" id="shared-owner"></div>
+                <div class="shared-meta-row">
+                    <div class="shared-owner" id="shared-owner"></div>
+                    <span class="shared-msg-count" id="shared-msg-count"></span>
+                </div>
             </div>
         </div>
         <div class="shared-header-actions">
@@ -476,7 +514,7 @@
             const avatar = document.createElement('div');
             if (msg.role === 'assistant') {
                 avatar.className = 'msg-avatar';
-                avatar.innerHTML = '<img src="scalable-logo.png" alt="Scalable">';
+                avatar.innerHTML = '<img src="/scalable-logo.png" alt="Scalable">';
             } else {
                 avatar.className = 'msg-avatar user-avatar';
                 avatar.textContent = 'U';
@@ -553,7 +591,13 @@
                 document.getElementById('shared-title').textContent = data.title || 'Shared chat';
                 document.getElementById('shared-owner').textContent = data.owner ? ('Shared by ' + data.owner) : '';
                 const messagesEl = document.getElementById('shared-messages');
-                (data.messages || []).forEach(msg => messagesEl.appendChild(renderMessage(msg)));
+                const messageList = data.messages || [];
+                messageList.forEach(msg => messagesEl.appendChild(renderMessage(msg)));
+                const countEl = document.getElementById('shared-msg-count');
+                if (countEl && messageList.length) {
+                    countEl.textContent = messageList.length + (messageList.length === 1 ? ' message' : ' messages');
+                    countEl.classList.add('visible');
+                }
                 document.getElementById('shared-loading').style.display = 'none';
                 messagesEl.style.display = 'block';
                 document.getElementById('shared-footer').style.display = 'block';
