@@ -162,3 +162,35 @@ body.light-theme .cookie-banner .cookie-banner-actions button.cookie-accept {
 body.light-theme .cookie-banner .cookie-banner-actions button.cookie-accept:hover {
     background: #2a2a30 !important;
 }
+
+/* ---- Sticky footer (desktop only) ----
+   On short pages (contact.html, etc.) the footer used to float up right
+   under the content, leaving a large empty gap beneath it on tall desktop
+   viewports. Flexbox pushes it down to sit flush with the bottom of the
+   screen instead, without affecting page scrolling when content IS tall
+   enough to fill the viewport on its own.
+   Desktop-only per request: gated to the same 701px+ breakpoint the pages
+   already use as their "not mobile" cutoff, since mobile layouts already
+   fit correctly and don't need this. Applies in both dark and light mode,
+   so it isn't scoped under body.light-theme. */
+@media (min-width: 701px) {
+
+    html,
+    body {
+        height: 100%;
+    }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    body main {
+        flex: 1 0 auto;
+    }
+
+    body footer {
+        flex-shrink: 0;
+    }
+}
