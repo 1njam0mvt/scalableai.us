@@ -4968,6 +4968,265 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     border-left-color: var(--line);
 }
 
+/* =========================================================================
+   Artifact Viewer — right-side sliding drawer for generated file cards.
+   Same slide mechanic as .search-results-widget (flex sibling of
+   .chat-area, width animates 0 -> target), so it behaves consistently
+   with the rest of the app instead of introducing a second mechanism.
+   ========================================================================= */
+
+.artifact-viewer {
+    position: relative;
+    z-index: 6;
+    flex: 0 0 auto;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-1);
+    border-left: 1px solid transparent;
+    opacity: 0;
+    transition: width var(--med) var(--ease), opacity var(--fast) var(--ease),
+        border-color var(--med) var(--ease);
+}
+
+.artifact-viewer.open {
+    width: clamp(320px, 33vw, 620px);
+    opacity: 1;
+    border-left-color: var(--line);
+}
+
+.artifact-viewer.expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    width: 100% !important;
+    border-left: none;
+}
+
+.artifact-viewer-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: clamp(320px, 33vw, 620px);
+    min-width: 320px;
+}
+
+.artifact-viewer.expanded .artifact-viewer-inner {
+    width: 100%;
+    min-width: 0;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.artifact-viewer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.artifact-viewer-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.artifact-viewer-header-left svg {
+    flex-shrink: 0;
+    color: var(--ink-2);
+}
+
+.artifact-viewer-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.artifact-viewer-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+/* Copy button + its dropdown caret rendered as one visually joined group */
+.artifact-copy-group {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    overflow: visible;
+}
+
+.artifact-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-2);
+    color: var(--ink-1);
+    border: none;
+    border-right: 1px solid var(--line-strong);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+    white-space: nowrap;
+}
+
+.artifact-copy-btn:hover {
+    background: var(--bg-3);
+    color: var(--ink-0);
+}
+
+.artifact-copy-caret {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    background: var(--bg-2);
+    color: var(--ink-1);
+    border: none;
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.artifact-copy-caret:hover {
+    background: var(--bg-3);
+    color: var(--ink-0);
+}
+
+.artifact-copy-caret svg {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--fast) var(--ease);
+}
+
+.artifact-copy-caret[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+/* Floating dropdown menu */
+.artifact-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    min-width: 190px;
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.artifact-dropdown-menu.open {
+    display: flex;
+}
+
+.artifact-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink-1);
+    border: none;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.artifact-dropdown-item:hover {
+    background: var(--bg-3);
+    color: var(--ink-0);
+}
+
+.artifact-dropdown-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.artifact-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.artifact-icon-btn:hover {
+    background: var(--bg-2);
+    color: var(--ink-0);
+    border-color: var(--line);
+}
+
+.artifact-viewer-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--bg-0);
+}
+
+.artifact-viewer-body pre {
+    margin: 0;
+    height: 100%;
+}
+
+.artifact-viewer-body pre[class*="language-"] {
+    background: transparent !important;
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+/* line-numbers plugin gutter tuned to sit flush against our own padding */
+.artifact-viewer-body pre.line-numbers {
+    padding-left: 3.4em;
+}
+
+.artifact-viewer-body .line-numbers-rows {
+    border-right-color: var(--line-strong) !important;
+}
+
+@media (max-width: 860px) {
+    .artifact-viewer.open {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        width: 100%;
+        border-left: none;
+    }
+
+    .artifact-viewer-inner {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
 /* ---- search results header ---- */
 /* Title on the left, close button pinned to the right in a shaded square
    (same look as .btn-icon / the "+" attach button) so it sits neatly in
