@@ -40,6 +40,9 @@
             --btn-bg: rgba(255, 255, 255, 0.05);
             --btn-bg-hover: rgba(255, 255, 255, 0.1);
             --shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            --brand-blue: #2f6fed;
+            --brand-blue-hover: #4f89ff;
+            --brand-blue-glow: rgba(79, 137, 255, 0.55);
             color-scheme: dark;
         }
 
@@ -59,6 +62,9 @@
             --btn-bg: rgba(0, 0, 0, 0.04);
             --btn-bg-hover: rgba(0, 0, 0, 0.09);
             --shadow: 0 8px 32px rgba(20, 20, 60, 0.10);
+            --brand-blue: #1a56d6;
+            --brand-blue-hover: #2f6fed;
+            --brand-blue-glow: rgba(26, 86, 214, 0.35);
             color-scheme: light;
         }
 
@@ -105,11 +111,30 @@
         }
 
         .topbar-title {
+            display: inline-flex;
+            align-items: center;
             font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-dim);
+            font-weight: 800;
+            color: #ffffff;
             letter-spacing: 1.5px;
             text-transform: uppercase;
+            padding: 7px 16px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-hover));
+            /* Opacity lives on the glow/border, not the element itself, so
+               the badge stays solid and the text stays fully legible in
+               both themes instead of washing out. */
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+                0 4px 18px var(--brand-blue-glow);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+        }
+
+        [data-theme="light"] .topbar-title {
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+                0 4px 14px var(--brand-blue-glow);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
         }
 
         .topbar-actions {
@@ -399,6 +424,85 @@
             opacity: 0.5;
         }
 
+        /* Rendered, view-only preview of generated content. Same box look
+           as .content-editor, but real formatting instead of raw
+           #/**/- characters. */
+        .content-preview {
+            width: 100%;
+            flex: 1;
+            min-height: 55vh;
+            padding: 24px 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.92rem;
+            line-height: 1.8;
+            overflow-y: auto;
+        }
+
+        .content-preview h1,
+        .content-preview h2,
+        .content-preview h3 {
+            margin: 0.6em 0 0.35em;
+            line-height: 1.3;
+            color: var(--text);
+        }
+
+        .content-preview h1:first-child,
+        .content-preview h2:first-child,
+        .content-preview h3:first-child {
+            margin-top: 0;
+        }
+
+        .content-preview h1 {
+            font-size: 1.35rem;
+        }
+
+        .content-preview h2 {
+            font-size: 1.15rem;
+        }
+
+        .content-preview h3 {
+            font-size: 1.02rem;
+        }
+
+        .content-preview p {
+            margin: 0 0 0.9em;
+        }
+
+        .content-preview p:last-child {
+            margin-bottom: 0;
+        }
+
+        .content-preview ul,
+        .content-preview ol {
+            margin: 0 0 0.9em;
+            padding-left: 1.4em;
+        }
+
+        .content-preview li {
+            margin: 0.25em 0;
+        }
+
+        .content-preview strong {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .content-preview em {
+            font-style: italic;
+        }
+
+        .content-preview code {
+            font-family: 'Consolas', 'Menlo', monospace;
+            font-size: 0.88em;
+            background: var(--btn-bg);
+            padding: 0.1em 0.4em;
+            border-radius: 4px;
+        }
+
         .content-wordcount {
             font-size: 0.7rem;
             color: var(--text-dim);
@@ -529,6 +633,7 @@
 
             .topbar-title {
                 font-size: 0.75rem;
+                padding: 6px 13px;
             }
 
             .btn {
@@ -730,6 +835,87 @@
                 });
                 actionsEl.appendChild(copyUrlBtn);
             }
+            /* Small, dependency-free markdown -> HTML renderer for generated
+               content. Covers what the AI actually produces here: #/##/###
+               headings, **bold**, *italic*, `code`, and - / * / 1. lists.
+               HTML is escaped first so generated text can never inject
+               markup, then a handful of regexes turn markdown syntax into
+               real tags instead of showing the raw symbols. */
+            function escapeHtml(str) {
+                return str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+            function renderInline(text) {
+                let html = escapeHtml(text);
+                html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+                html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                html = html.replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,!?]|$)/g, '$1<em>$2</em>');
+                return html;
+            }
+            function renderMarkdown(raw) {
+                if (!raw) return '';
+                const lines = raw.replace(/\r\n/g, '\n').split('\n');
+                let html = '';
+                let listType = null; // 'ul' | 'ol' | null
+                let paragraph = [];
+
+                function flushParagraph() {
+                    if (paragraph.length) {
+                        html += '<p>' + renderInline(paragraph.join(' ')) + '</p>';
+                        paragraph = [];
+                    }
+                }
+                function closeList() {
+                    if (listType) {
+                        html += '</' + listType + '>';
+                        listType = null;
+                    }
+                }
+
+                for (const rawLine of lines) {
+                    const line = rawLine.trim();
+
+                    if (!line) {
+                        flushParagraph();
+                        closeList();
+                        continue;
+                    }
+
+                    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+                    if (heading) {
+                        flushParagraph();
+                        closeList();
+                        const level = heading[1].length;
+                        html += '<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>';
+                        continue;
+                    }
+
+                    const bullet = line.match(/^[-*]\s+(.*)$/);
+                    if (bullet) {
+                        flushParagraph();
+                        if (listType !== 'ul') { closeList(); html += '<ul>'; listType = 'ul'; }
+                        html += '<li>' + renderInline(bullet[1]) + '</li>';
+                        continue;
+                    }
+
+                    const numbered = line.match(/^\d+[.)]\s+(.*)$/);
+                    if (numbered) {
+                        flushParagraph();
+                        if (listType !== 'ol') { closeList(); html += '<ol>'; listType = 'ol'; }
+                        html += '<li>' + renderInline(numbered[1]) + '</li>';
+                        continue;
+                    }
+
+                    closeList();
+                    paragraph.push(line);
+                }
+                flushParagraph();
+                closeList();
+                return html;
+            }
+
             function renderContent(result) {
                 document.title = 'ScalableAI — Generated Content';
                 const container = document.createElement('div');
@@ -767,12 +953,20 @@
                 container.appendChild(header);
                 const editorWrap = document.createElement('div');
                 editorWrap.className = 'content-editor-wrap';
+                // Raw markdown source, kept off-screen. Copy / Download /
+                // Copy All all read from here, so exported text is still
+                // the original unrendered markdown, not the formatted HTML.
                 const editor = document.createElement('textarea');
                 editor.className = 'content-editor';
                 editor.value = result.text || '';
-                editor.spellcheck = true;
-                editor.placeholder = 'Your content will appear here...';
+                editor.style.display = 'none';
+                editor.setAttribute('aria-hidden', 'true');
                 editorWrap.appendChild(editor);
+                // Visible, formatted, view-only rendering of that same text.
+                const preview = document.createElement('div');
+                preview.className = 'content-preview';
+                preview.innerHTML = renderMarkdown(editor.value) || '<p style="opacity:.5">Your content will appear here...</p>';
+                editorWrap.appendChild(preview);
                 const wordcount = document.createElement('div');
                 wordcount.className = 'content-wordcount';
                 function updateWordCount() {
@@ -781,7 +975,6 @@
                     wordcount.textContent = words + ' words / ' + chars + ' characters';
                 }
                 updateWordCount();
-                editor.addEventListener('input', updateWordCount);
                 editorWrap.appendChild(wordcount);
                 container.appendChild(editorWrap);
                 mainEl.appendChild(container);
