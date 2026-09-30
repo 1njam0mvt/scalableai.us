@@ -796,6 +796,188 @@ function artifactIconSvg(label) {
     return '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>';
 }
 
+/* =========================================================================
+   Artifact Viewer — right-side sliding drawer for .artifact-file-card
+   clicks. Extension -> language/label mapping is intentionally generic
+   (covers the file types named in the spec: html, py, js, jsx, ts, tsx,
+   css, json, md, txt, sh, yml/yaml, sql, and more via a sane fallback)
+   so a new file type just needs no extra code at all, not a new case.
+   ========================================================================= */
+// Autoloader fetches missing language grammars on demand; point it at the
+// same CDN version used in index.html rather than a relative path (which
+// only works when Prism itself is self-hosted).
+if (window.Prism && Prism.plugins && Prism.plugins.autoloader) {
+    Prism.plugins.autoloader.languages_path =
+        'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/';
+}
+
+const ArtifactViewer = (function () {
+    // extension -> { prismLang, displayLabel }
+    const EXT_MAP = {
+        html: { lang: 'markup', display: 'HTML' },
+        htm: { lang: 'markup', display: 'HTML' },
+        xml: { lang: 'markup', display: 'XML' },
+        svg: { lang: 'markup', display: 'SVG' },
+        css: { lang: 'css', display: 'CSS' },
+        scss: { lang: 'scss', display: 'SCSS' },
+        js: { lang: 'javascript', display: 'JS' },
+        mjs: { lang: 'javascript', display: 'JS' },
+        jsx: { lang: 'jsx', display: 'JSX' },
+        ts: { lang: 'typescript', display: 'TS' },
+        tsx: { lang: 'tsx', display: 'TSX' },
+        py: { lang: 'python', display: 'PY' },
+        json: { lang: 'json', display: 'JSON' },
+        md: { lang: 'markdown', display: 'MD' },
+        markdown: { lang: 'markdown', display: 'MD' },
+        sh: { lang: 'bash', display: 'SH' },
+        bash: { lang: 'bash', display: 'SH' },
+        yml: { lang: 'yaml', display: 'YAML' },
+        yaml: { lang: 'yaml', display: 'YAML' },
+        sql: { lang: 'sql', display: 'SQL' },
+        java: { lang: 'java', display: 'JAVA' },
+        c: { lang: 'c', display: 'C' },
+        cpp: { lang: 'cpp', display: 'CPP' },
+        cs: { lang: 'csharp', display: 'CS' },
+        go: { lang: 'go', display: 'GO' },
+        rb: { lang: 'ruby', display: 'RB' },
+        php: { lang: 'php', display: 'PHP' },
+        txt: { lang: 'markup', display: 'TXT' },
+    };
+
+    let state = { filename: '', content: '', ext: 'txt' };
+    let els = null;
+
+    function q(id) { return document.getElementById(id); }
+
+    function ensureEls() {
+        if (els) return els;
+        els = {
+            panel: q('artifact-viewer'),
+            title: q('artifact-viewer-title'),
+            code: q('artifact-viewer-code'),
+            copyBtn: q('artifact-copy-btn'),
+            caretBtn: q('artifact-copy-caret'),
+            menu: q('artifact-dropdown-menu'),
+            downloadItem: q('artifact-download-item'),
+            downloadLabel: q('artifact-download-label'),
+            publishItem: q('artifact-publish-item'),
+            expandBtn: q('artifact-expand-btn'),
+            closeBtn: q('artifact-close-btn'),
+        };
+        wireEvents();
+        return els;
+    }
+
+    function getExt(filename) {
+        const m = /\.([a-z0-9]+)$/i.exec(filename || '');
+        return m ? m[1].toLowerCase() : 'txt';
+    }
+
+    function meta(ext) {
+        return EXT_MAP[ext] || { lang: 'markup', display: ext ? ext.toUpperCase() : 'TXT' };
+    }
+
+    function highlight() {
+        const info = meta(state.ext);
+        els.code.className = 'language-' + info.lang;
+        els.code.textContent = state.content;
+        if (window.Prism) {
+            try {
+                Prism.highlightElement(els.code);
+            } catch (e) { /* unsupported language grammar — plain text still shows */ }
+        }
+    }
+
+    function open(filename, content) {
+        ensureEls();
+        state = { filename: filename || 'artifact.txt', content: content || '', ext: getExt(filename) };
+        const info = meta(state.ext);
+        els.title.textContent = 'Viewer · ' + info.display;
+        els.downloadLabel.textContent = 'Download as ' + info.display;
+        highlight();
+        els.panel.classList.add('open');
+        els.panel.setAttribute('aria-hidden', 'false');
+        closeMenu();
+    }
+
+    function close() {
+        if (!els) return;
+        els.panel.classList.remove('open', 'expanded');
+        els.panel.setAttribute('aria-hidden', 'true');
+        closeMenu();
+    }
+
+    function toggleExpand() {
+        els.panel.classList.toggle('expanded');
+    }
+
+    function openMenu() {
+        els.menu.classList.add('open');
+        els.caretBtn.setAttribute('aria-expanded', 'true');
+    }
+    function closeMenu() {
+        if (!els) return;
+        els.menu.classList.remove('open');
+        els.caretBtn.setAttribute('aria-expanded', 'false');
+    }
+    function toggleMenu() {
+        if (els.menu.classList.contains('open')) closeMenu(); else openMenu();
+    }
+
+    function doCopy() {
+        const original = els.copyBtn.textContent;
+        copyTextToClipboard(state.content).then((ok) => {
+            els.copyBtn.textContent = ok ? 'Copied!' : 'Failed';
+            setTimeout(() => { els.copyBtn.textContent = original; }, 1500);
+        });
+    }
+
+    function doDownload() {
+        try {
+            const blob = new Blob([state.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = state.filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+            showToast('Could not download the file — please try again.');
+        }
+        closeMenu();
+    }
+
+    function doPublish() {
+        closeMenu();
+        showToast('Publishing isn\'t available for this file type yet.');
+    }
+
+    function wireEvents() {
+        els.copyBtn.addEventListener('click', doCopy);
+        els.caretBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+        els.downloadItem.addEventListener('click', doDownload);
+        els.publishItem.addEventListener('click', doPublish);
+        els.expandBtn.addEventListener('click', toggleExpand);
+        els.closeBtn.addEventListener('click', close);
+        document.addEventListener('click', (e) => {
+            if (els.menu.classList.contains('open') && !els.menu.contains(e.target) && e.target !== els.caretBtn) {
+                closeMenu();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && els.panel.classList.contains('open')) close();
+        });
+    }
+
+    return { open, close };
+})();
+
+function openArtifactViewer(filename, content) {
+    ArtifactViewer.open(filename, content);
+}
+
 // Per-message copy button — hidden until hover/focus (see CSS), so it
 // doesn't clutter every reply visually. One delegated click handler
 // (below) handles all of these rather than a listener per button, so
@@ -1315,7 +1497,8 @@ function renderArtifactCard(artifact, contentEl) {
         '</svg></button>';
 
     const downloadBtn = card.querySelector('.artifact-file-download');
-    downloadBtn.addEventListener('click', () => {
+    downloadBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // don't also trigger the card's own open-panel click
         try {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
@@ -1329,6 +1512,13 @@ function renderArtifactCard(artifact, contentEl) {
         } catch (err) {
             showToast('Could not download the file — please try again.');
         }
+    });
+
+    // Clicking the card itself (not the download button) opens the
+    // in-app side preview instead of downloading.
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+        openArtifactViewer(filename, content);
     });
 
     contentEl.appendChild(card);
