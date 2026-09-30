@@ -1102,6 +1102,80 @@
                     <div class="search-results-answer" id="search-results-answer"></div>
                     <div class="search-results-list" id="search-results-list"></div>
                 </aside>
+                <aside class="artifact-viewer" id="artifact-viewer" aria-hidden="true">
+                    <div class="artifact-viewer-inner">
+                        <div class="artifact-viewer-header">
+                            <div class="artifact-viewer-header-left">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="16 18 22 12 16 6" />
+                                    <polyline points="8 6 2 12 8 18" />
+                                </svg>
+                                <span class="artifact-viewer-title" id="artifact-viewer-title">Viewer</span>
+                            </div>
+                            <div class="artifact-viewer-header-right">
+                                <div class="artifact-copy-group">
+                                    <button type="button" class="artifact-copy-btn" id="artifact-copy-btn">Copy</button>
+                                    <button type="button" class="artifact-copy-caret" id="artifact-copy-caret"
+                                        aria-haspopup="true" aria-expanded="false" aria-label="More export options">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
+                                    </button>
+                                    <div class="artifact-dropdown-menu" id="artifact-dropdown-menu" role="menu">
+                                        <button type="button" class="artifact-dropdown-item" id="artifact-download-item"
+                                            role="menuitem">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                            <span id="artifact-download-label">Download as TXT</span>
+                                        </button>
+                                        <button type="button" class="artifact-dropdown-item" id="artifact-publish-item"
+                                            role="menuitem">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                                                <polyline points="16 6 12 2 8 6" />
+                                                <line x1="12" y1="2" x2="12" y2="15" />
+                                            </svg>
+                                            <span>Publish artifact</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="artifact-icon-btn" id="artifact-expand-btn"
+                                    title="Expand" aria-label="Expand viewer">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <polyline points="15 3 21 3 21 9" />
+                                        <polyline points="9 21 3 21 3 15" />
+                                        <line x1="21" y1="3" x2="14" y2="10" />
+                                        <line x1="3" y1="21" x2="10" y2="14" />
+                                    </svg>
+                                </button>
+                                <button type="button" class="artifact-icon-btn" id="artifact-close-btn" title="Close"
+                                    aria-label="Close viewer">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="artifact-viewer-body">
+                            <pre class="line-numbers"><code id="artifact-viewer-code" class="language-markup"></code></pre>
+                        </div>
+                    </div>
+                </aside>
             </div>
             <footer class="input-bar glass-panel">
                 <div class="quick-actions-row" id="quick-actions-row"></div>
@@ -1603,6 +1677,13 @@
             </div>
         </div>
     </div>
+    <!-- Prism.js: syntax highlighting + line numbers for the Artifact Viewer panel -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
     <script src="/orb.js?v=202609090445"></script>
     <script src="/script.js?v=202609090445"></script>
     <script>
