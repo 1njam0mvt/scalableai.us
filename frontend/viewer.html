@@ -424,6 +424,44 @@
             opacity: 0.5;
         }
 
+        /* ---- Live Edit ---- */
+
+        /* Editable textarea, shown in place of .content-preview while
+           editing (display toggled directly in JS, same as the preview
+           pane). Reuses .content-editor's existing box styling so nothing
+           shifts size when switching between view and edit. */
+        .content-editor.live-edit-active {
+            resize: none;
+            min-height: 55vh;
+        }
+
+        /* Thin divider between the textarea and the Cancel/Save row,
+           adapting to a lighter/darker line automatically via --border. */
+        .content-edit-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 14px 0;
+            flex-shrink: 0;
+        }
+
+        .content-edit-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Large pill buttons for Cancel/Save — bigger and more rounded
+           than the top-bar .btn, matching the reference Log in / Sign up
+           pill shape. Colors are inherited from .btn / .btn-primary so
+           dark/light contrast is already correct with no new variables. */
+        .content-edit-actions .btn {
+            padding: 10px 26px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
         /* Rendered, view-only preview of generated content. Same box look
            as .content-editor, but real formatting instead of raw
            #/**/- characters. */
@@ -937,7 +975,13 @@
                 header.appendChild(meta);
                 const actions = document.createElement('div');
                 actions.className = 'content-actions';
+                // Edit sits to the left of Copy / Download, as specified.
+                const editBtn = createBtn('Edit', editSvg(), () => enterEditMode());
+                actions.appendChild(editBtn);
                 const copyBtn = createBtn('Copy', copySvg(), () => {
+                    // Reads editor.value live, so this always reflects the
+                    // latest saved edit — no separate "edited content"
+                    // variable needed anywhere in this function.
                     navigator.clipboard.writeText(editor.value).then(() => showToast('Content copied!'));
                 });
                 actions.appendChild(copyBtn);
@@ -953,9 +997,10 @@
                 container.appendChild(header);
                 const editorWrap = document.createElement('div');
                 editorWrap.className = 'content-editor-wrap';
-                // Raw markdown source, kept off-screen. Copy / Download /
-                // Copy All all read from here, so exported text is still
-                // the original unrendered markdown, not the formatted HTML.
+                // Raw markdown source. Hidden while viewing the rendered
+                // preview, shown in place of it during Live Edit. Copy /
+                // Download / Copy All all read from here, so exported (and
+                // re-rendered) content is always whatever was last saved.
                 const editor = document.createElement('textarea');
                 editor.className = 'content-editor';
                 editor.value = result.text || '';
@@ -967,6 +1012,54 @@
                 preview.className = 'content-preview';
                 preview.innerHTML = renderMarkdown(editor.value) || '<p style="opacity:.5">Your content will appear here...</p>';
                 editorWrap.appendChild(preview);
+
+                // Divider + Cancel/Save row, hidden until edit mode opens.
+                const editDivider = document.createElement('div');
+                editDivider.className = 'content-edit-divider';
+                editDivider.style.display = 'none';
+                editorWrap.appendChild(editDivider);
+
+                const editActions = document.createElement('div');
+                editActions.className = 'content-edit-actions';
+                editActions.style.display = 'none';
+                let preEditValue = '';
+                const cancelBtn = createBtn('Cancel', '', () => exitEditMode(false));
+                const saveBtn = createBtn('Save', '', () => exitEditMode(true));
+                saveBtn.classList.add('btn-primary');
+                editActions.appendChild(cancelBtn);
+                editActions.appendChild(saveBtn);
+                editorWrap.appendChild(editActions);
+
+                function enterEditMode() {
+                    preEditValue = editor.value; // snapshot, restored on Cancel
+                    preview.style.display = 'none';
+                    editor.style.display = 'block';
+                    editor.classList.add('live-edit-active');
+                    editor.removeAttribute('aria-hidden');
+                    editDivider.style.display = 'block';
+                    editActions.style.display = 'flex';
+                    editor.focus();
+                }
+
+                function exitEditMode(save) {
+                    if (!save) {
+                        editor.value = preEditValue; // discard changes
+                    } else {
+                        // Re-render the preview from the (now updated)
+                        // editor.value. updateWordCount() also reads
+                        // editor.value, so the count stays in sync too.
+                        preview.innerHTML = renderMarkdown(editor.value) ||
+                            '<p style="opacity:.5">Your content will appear here...</p>';
+                        updateWordCount();
+                    }
+                    editor.style.display = 'none';
+                    editor.classList.remove('live-edit-active');
+                    editor.setAttribute('aria-hidden', 'true');
+                    editDivider.style.display = 'none';
+                    editActions.style.display = 'none';
+                    preview.style.display = 'block';
+                }
+
                 const wordcount = document.createElement('div');
                 wordcount.className = 'content-wordcount';
                 function updateWordCount() {
@@ -980,6 +1073,8 @@
                 mainEl.appendChild(container);
                 actionsEl.innerHTML = '';
                 const topCopyBtn = createBtn('Copy All', copySvg(), () => {
+                    // Same live editor.value read as the in-card Copy button
+                    // above — always the latest saved content.
                     navigator.clipboard.writeText(editor.value).then(() => showToast('Copied!'));
                 });
                 topCopyBtn.classList.add('btn-primary');
@@ -988,7 +1083,7 @@
             function createBtn(text, svgHtml, onClick) {
                 const btn = document.createElement('button');
                 btn.className = 'btn';
-                btn.innerHTML = svgHtml + ' ' + text;
+                btn.innerHTML = svgHtml ? (svgHtml + ' ' + text) : text;
                 btn.addEventListener('click', onClick);
                 return btn;
             }
@@ -1038,6 +1133,9 @@
             }
             function copySvg() {
                 return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            }
+            function editSvg() {
+                return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>';
             }
         })();
     </script>
