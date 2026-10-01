@@ -844,7 +844,11 @@ const ArtifactViewer = (function () {
         txt: { lang: 'markup', display: 'TXT' },
     };
 
-    let state = { filename: '', content: '', ext: 'txt' };
+    // Extensions with an actual visual preview. Anything else falls back
+    // to Code view and the Eye toggle disables itself (per spec).
+    const PREVIEWABLE = { html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown' };
+
+    let state = { filename: '', content: '', ext: 'txt', view: 'code' };
     let els = null;
 
     function q(id) { return document.getElementById(id); }
@@ -855,6 +859,12 @@ const ArtifactViewer = (function () {
             panel: q('artifact-viewer'),
             title: q('artifact-viewer-title'),
             code: q('artifact-viewer-code'),
+            codeView: q('artifact-code-view'),
+            markdownView: q('artifact-markdown-view'),
+            htmlView: q('artifact-html-view'),
+            noPreview: q('artifact-no-preview'),
+            previewToggleBtn: q('artifact-preview-toggle-btn'),
+            codeToggleBtn: q('artifact-code-toggle-btn'),
             copyBtn: q('artifact-copy-btn'),
             caretBtn: q('artifact-copy-caret'),
             menu: q('artifact-dropdown-menu'),
@@ -888,13 +898,79 @@ const ArtifactViewer = (function () {
         }
     }
 
+    // Hides all four body panes, then shows exactly the one `name` picks:
+    // 'code' | 'markdown' | 'html' | 'none'. Single source of truth for
+    // visibility so setView() never has to juggle display toggles itself.
+    function showPane(name) {
+        els.codeView.style.display = name === 'code' ? '' : 'none';
+        els.markdownView.style.display = name === 'markdown' ? '' : 'none';
+        els.htmlView.style.display = name === 'html' ? '' : 'none';
+        els.noPreview.style.display = name === 'none' ? '' : 'none';
+    }
+
+    function renderMarkdownPreview() {
+        if (window.marked) {
+            try {
+                els.markdownView.innerHTML = marked.parse(state.content);
+                return;
+            } catch (e) { /* fall through to plain text below */ }
+        }
+        // marked.js failed to load or failed to parse — still show the
+        // content rather than a blank pane.
+        els.markdownView.textContent = state.content;
+    }
+
+    function renderHtmlPreview() {
+        // srcdoc (not document.write) keeps this a clean, isolated
+        // document each time, on top of the iframe's own sandbox attr.
+        els.htmlView.srcdoc = state.content;
+    }
+
+    function setView(view) {
+        const canPreview = Boolean(PREVIEWABLE[state.ext]);
+        if (view === 'preview' && !canPreview) view = 'code'; // guard: never let an unsupported type land on preview
+        state.view = view;
+
+        els.previewToggleBtn.classList.toggle('active', view === 'preview');
+        els.previewToggleBtn.setAttribute('aria-pressed', String(view === 'preview'));
+        els.codeToggleBtn.classList.toggle('active', view === 'code');
+        els.codeToggleBtn.setAttribute('aria-pressed', String(view === 'code'));
+
+        if (view === 'code') {
+            showPane('code');
+            return;
+        }
+        const kind = PREVIEWABLE[state.ext]; // 'html' | 'markdown'
+        if (kind === 'markdown') {
+            renderMarkdownPreview();
+            showPane('markdown');
+        } else if (kind === 'html') {
+            renderHtmlPreview();
+            showPane('html');
+        } else {
+            showPane('none');
+        }
+    }
+
+    function updatePreviewAvailability() {
+        const canPreview = Boolean(PREVIEWABLE[state.ext]);
+        els.previewToggleBtn.classList.toggle('disabled', !canPreview);
+        els.previewToggleBtn.disabled = !canPreview;
+        els.previewToggleBtn.title = canPreview ? 'Preview' : 'No preview available for this file type';
+    }
+
     function open(filename, content) {
         ensureEls();
-        state = { filename: filename || 'artifact.txt', content: content || '', ext: getExt(filename) };
+        state = { filename: filename || 'artifact.txt', content: content || '', ext: getExt(filename), view: 'code' };
         const info = meta(state.ext);
         els.title.textContent = 'Viewer · ' + info.display;
         els.downloadLabel.textContent = 'Download as ' + info.display;
         highlight();
+        updatePreviewAvailability();
+        // Unsupported types (.py, .js, .txt, ...) always open straight into
+        // Code view, as specified — never default to a preview that can't
+        // render anything.
+        setView('code');
         els.panel.classList.add('open');
         els.panel.setAttribute('aria-hidden', 'false');
         closeMenu();
@@ -904,6 +980,7 @@ const ArtifactViewer = (function () {
         if (!els) return;
         els.panel.classList.remove('open', 'expanded');
         els.panel.setAttribute('aria-hidden', 'true');
+        els.htmlView.srcdoc = ''; // stop any script/media running inside the sandboxed preview once closed
         closeMenu();
     }
 
@@ -955,6 +1032,8 @@ const ArtifactViewer = (function () {
     }
 
     function wireEvents() {
+        els.previewToggleBtn.addEventListener('click', () => setView('preview'));
+        els.codeToggleBtn.addEventListener('click', () => setView('code'));
         els.copyBtn.addEventListener('click', doCopy);
         els.caretBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
         els.downloadItem.addEventListener('click', doDownload);
