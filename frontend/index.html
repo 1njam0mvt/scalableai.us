@@ -1106,16 +1106,27 @@
                     <div class="artifact-viewer-inner">
                         <div class="artifact-viewer-header">
                             <div class="artifact-viewer-header-left">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <polyline points="16 18 22 12 16 6" />
-                                    <polyline points="8 6 2 12 8 18" />
-                                </svg>
+                                <div class="artifact-view-toggle" id="artifact-view-toggle" role="group"
+                                    aria-label="Switch between preview and code view">
+                                    <button type="button" class="artifact-view-btn" id="artifact-preview-toggle-btn"
+                                        data-view="preview" title="Preview" aria-label="Preview" aria-pressed="false">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                            aria-hidden="true">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="artifact-view-btn active" id="artifact-code-toggle-btn"
+                                        data-view="code" title="Code" aria-label="Code" aria-pressed="true">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                            aria-hidden="true">
+                                            <polyline points="16 18 22 12 16 6" />
+                                            <polyline points="8 6 2 12 8 18" />
+                                        </svg>
+                                    </button>
+                                </div>
                                 <span class="artifact-viewer-title" id="artifact-viewer-title">Viewer</span>
                             </div>
                             <div class="artifact-viewer-header-right">
@@ -1172,7 +1183,20 @@
                             </div>
                         </div>
                         <div class="artifact-viewer-body">
-                            <pre class="line-numbers"><code id="artifact-viewer-code" class="language-markup"></code></pre>
+                            <pre id="artifact-code-view" class="line-numbers"><code id="artifact-viewer-code" class="language-markup"></code></pre>
+                            <div id="artifact-markdown-view" class="artifact-markdown-view" style="display:none;"></div>
+                            <iframe id="artifact-html-view" class="artifact-html-view" style="display:none;"
+                                sandbox="allow-scripts" title="HTML preview"></iframe>
+                            <div id="artifact-no-preview" class="artifact-no-preview" style="display:none;">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a20.3 20.3 0 0 1-2.16 3.19" />
+                                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                                <p>No preview available for this file type.</p>
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -1684,6 +1708,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <!-- marked.js: renders Markdown files in the Artifact Viewer's Preview tab -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     <script src="/orb.js?v=202609090445"></script>
     <script src="/script.js?v=202609090445"></script>
     <script>
