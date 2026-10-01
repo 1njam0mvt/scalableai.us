@@ -5042,6 +5042,58 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
     color: var(--ink-2);
 }
 
+/* Eye / Code toggle group */
+.artifact-view-toggle {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    padding: 2px;
+    gap: 2px;
+}
+
+.artifact-view-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-2);
+    opacity: 0.55;
+    cursor: pointer;
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease), opacity var(--fast) var(--ease);
+}
+
+.artifact-view-btn svg {
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.artifact-view-btn:hover {
+    opacity: 0.85;
+}
+
+.artifact-view-btn.active {
+    background: var(--bg-3);
+    color: var(--ink-0);
+    opacity: 1;
+}
+
+.artifact-view-btn.disabled {
+    cursor: not-allowed;
+    opacity: 0.25;
+}
+
+.artifact-view-btn.disabled:hover {
+    opacity: 0.25;
+}
+
 .artifact-viewer-title {
     font-size: 13.5px;
     font-weight: 600;
@@ -5210,6 +5262,136 @@ body.guest-mode .model-menu-item[data-locked="true"] .model-lock {
 
 .artifact-viewer-body .line-numbers-rows {
     border-right-color: var(--line-strong) !important;
+}
+
+/* Markdown preview: same box as the code view, real typography instead
+   of raw # / ** / - characters. */
+.artifact-markdown-view {
+    height: 100%;
+    overflow: auto;
+    padding: 20px 24px;
+    color: var(--ink-0);
+    font-size: 13.5px;
+    line-height: 1.7;
+}
+
+.artifact-markdown-view h1,
+.artifact-markdown-view h2,
+.artifact-markdown-view h3,
+.artifact-markdown-view h4 {
+    margin: 1.1em 0 0.5em;
+    line-height: 1.3;
+    color: var(--ink-0);
+}
+
+.artifact-markdown-view h1:first-child,
+.artifact-markdown-view h2:first-child,
+.artifact-markdown-view h3:first-child,
+.artifact-markdown-view h4:first-child {
+    margin-top: 0;
+}
+
+.artifact-markdown-view h1 {
+    font-size: 1.4rem;
+}
+
+.artifact-markdown-view h2 {
+    font-size: 1.2rem;
+}
+
+.artifact-markdown-view h3 {
+    font-size: 1.05rem;
+}
+
+.artifact-markdown-view p {
+    margin: 0 0 0.9em;
+}
+
+.artifact-markdown-view ul,
+.artifact-markdown-view ol {
+    margin: 0 0 0.9em;
+    padding-left: 1.4em;
+}
+
+.artifact-markdown-view li {
+    margin: 0.25em 0;
+}
+
+.artifact-markdown-view a {
+    color: var(--violet);
+}
+
+.artifact-markdown-view code {
+    font-family: 'Consolas', 'Menlo', monospace;
+    font-size: 0.88em;
+    background: var(--bg-2);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+}
+
+.artifact-markdown-view pre {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    overflow-x: auto;
+    margin: 0 0 0.9em;
+}
+
+.artifact-markdown-view pre code {
+    background: transparent;
+    padding: 0;
+}
+
+.artifact-markdown-view blockquote {
+    margin: 0 0 0.9em;
+    padding-left: 12px;
+    border-left: 3px solid var(--line-strong);
+    color: var(--ink-1);
+}
+
+.artifact-markdown-view table {
+    border-collapse: collapse;
+    margin: 0 0 0.9em;
+    width: 100%;
+}
+
+.artifact-markdown-view th,
+.artifact-markdown-view td {
+    border: 1px solid var(--line);
+    padding: 6px 10px;
+    text-align: left;
+}
+
+/* HTML preview: sandboxed iframe, fills the whole body area */
+.artifact-html-view {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #ffffff;
+}
+
+/* Unsupported-type message */
+.artifact-no-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 100%;
+    padding: 24px;
+    color: var(--ink-2);
+    text-align: center;
+}
+
+.artifact-no-preview svg {
+    color: var(--ink-2);
+    opacity: 0.6;
+}
+
+.artifact-no-preview p {
+    margin: 0;
+    font-size: 13px;
 }
 
 @media (max-width: 860px) {
