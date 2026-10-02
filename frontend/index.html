@@ -28,17 +28,30 @@
         content="A free AI assistant for automation, content generation, live search, and natural text-to-speech.">
     <meta name="twitter:image" content="https://www.scalableai.us/og-banner.png">
 
-    <!-- Favicons. 16/32/96 cover browser tabs and Google's search-result
-         icon; apple-touch-icon covers iOS home-screen/Safari; favicon.svg
-         is offered first since modern browsers prefer a crisp vector over
-         the raster fallbacks. All of these now have a solid dark (#09090b)
-         background baked in behind the logo mark — the mark itself is
-         white-on-transparent, which is why it was rendering invisible
-         against Google's white result background before. -->
+    <!-- Favicons.
+         The logo mark is solid white artwork, so it has to be handled
+         differently depending on where it's rendered:
+         - Browser tabs / bookmarks: favicon.svg uses a CSS
+           prefers-color-scheme media query to swap between a dark-colored
+           mark (light browser chrome) and the original white mark (dark
+           browser chrome), both on a transparent background — no visible
+           box either way. favicon-light-*.png / favicon-dark-*.png are the
+           same two variants as plain PNGs for browsers that don't support
+           the in-SVG media query, defaulting to the light (dark-mark)
+           version since that's the safer assumption for an unknown UA.
+         - apple-touch-icon: iOS always places its own background behind
+           touch icons, so this one intentionally keeps a solid dark
+           (#09090b) backing — a transparent PNG here would show checkered/
+           system default instead of your brand color.
+         - favicon.ico: kept as the solid dark-background version too,
+           since .ico is the fallback older browsers and crawlers reach
+           for, and (like Google's own result icon) those contexts don't
+           reliably honor transparency or dark-mode the way modern browser
+           tabs do. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-light-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-light-32x32.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-light-96x96.png" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Scalable" />
