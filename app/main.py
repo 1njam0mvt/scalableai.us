@@ -2186,6 +2186,42 @@ async def og_banner():
         headers={"Cache-Control": "public, max-age=86400"},
     )
 
+# Favicons for the public marketing pages (privacy.html, terms.html, etc.),
+# served from public/ since that folder has no generic static mount — every
+# non-HTML asset in it needs its own named route like this one.
+# Prefixed "public-" to avoid colliding with frontend/'s own identically
+# named favicon files, which are served separately by the "/" StaticFiles
+# mount further down — without the prefix, these routes (registered first)
+# would silently steal those requests away from the main app's favicons.
+_public_favicon_files = {
+    "public-favicon.svg": "image/svg+xml",
+    "public-favicon.ico": "image/x-icon",
+    "public-favicon-light-16x16.png": "image/png",
+    "public-favicon-light-32x32.png": "image/png",
+    "public-favicon-light-96x96.png": "image/png",
+    "public-favicon-dark-16x16.png": "image/png",
+    "public-favicon-dark-32x32.png": "image/png",
+    "public-favicon-dark-96x96.png": "image/png",
+    "public-apple-touch-icon.png": "image/png",
+}
+
+def _make_public_favicon_route(fname: str, media_type: str):
+    async def _route():
+        return FileResponse(
+            _public_dir / fname,
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    return _route
+
+for _fname, _media_type in _public_favicon_files.items():
+    app.add_api_route(
+        f"/{_fname}",
+        _make_public_favicon_route(_fname, _media_type),
+        methods=["GET"],
+        include_in_schema=False,
+    )
+
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 _i18n_assets_dir = Path(__file__).resolve().parent.parent / "i18n-assets"
 
@@ -2241,4 +2277,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-    
