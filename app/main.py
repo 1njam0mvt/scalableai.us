@@ -2059,15 +2059,39 @@ async def text_to_speech(request: TTSRequest, username: str = Depends(require_au
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
 
+    # Fallback voice used only if the primary ElevenLabs call fails (quota
+    # exhausted, bad key, API outage, etc). Deepest/most authoritative voice
+    # available in edge-tts (free, no quota) — chosen over en-GB-RyanNeural
+    # for a more assistant-like tone. Note: edge-tts voices are standard
+    # neural TTS, not stylized/robotic — there is no free, quota-free voice
+    # with a Jarvis/Ultron-style processed texture.
+    _TTS_FALLBACK_VOICE = "en-US-GuyNeural"
+
     async def generate():
-        try:
-            if TTS_VOICE.startswith(_ELEVENLABS_PREFIX):
-                voice_id = TTS_VOICE[len(_ELEVENLABS_PREFIX):] or ELEVENLABS_VOICE_ID
+        used_elevenlabs = TTS_VOICE.startswith(_ELEVENLABS_PREFIX)
+
+        if used_elevenlabs:
+            voice_id = TTS_VOICE[len(_ELEVENLABS_PREFIX):] or ELEVENLABS_VOICE_ID
+            try:
                 audio = await asyncio.to_thread(_generate_elevenlabs_sync, text, voice_id)
                 yield audio
                 return
+            except Exception as e:
+                # This used to be the end of the line: the exception was
+                # logged and generate() returned nothing, so the frontend
+                # got an empty audio stream — the answer went silent
+                # whenever ElevenLabs quota ran out, even though the chat
+                # reply itself streamed in fine. Falling through to
+                # edge-tts below means the spoken answer still plays (in a
+                # different voice) instead of going silent.
+                logger.warning(
+                    "[TTS] ElevenLabs failed (%s) — falling back to edge-tts (%s) "
+                    "for this response.", e, _TTS_FALLBACK_VOICE,
+                )
 
-            communicate = edge_tts.Communicate(text=text, voice=TTS_VOICE, rate=TTS_RATE)
+        voice = _TTS_FALLBACK_VOICE if used_elevenlabs else TTS_VOICE
+        try:
+            communicate = edge_tts.Communicate(text=text, voice=voice, rate=TTS_RATE)
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     yield chunk["data"]
