@@ -126,7 +126,7 @@ GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 VISION_MAX_IMAGE_BYTES = int(os.getenv("VISION_MAX_IMAGE_BYTES", "5000000"))
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 # Custom "ScalableAI" voice created in ElevenLabs — this is the app's primary voice.
-ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "sB7vwSCyX0tQmU24cW2C")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "gnyUFhyZl1sGQaU7tUKk")
 # Sentinel stored anywhere a "voice" value lives (dropdown option value, the
 # TTS_VOICE default below, a user's saved personalization.voice). The
 # "elevenlabs:" prefix is how main.py's _generate_tts_sync() tells an
