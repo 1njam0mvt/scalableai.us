@@ -3164,9 +3164,13 @@ async function sendMessage(textOverride) {
     let timeoutId = null;
     const controller = new AbortController();
     try {
-        if (ttsPlayer?.enabled && settings.thinkingSounds && preStarterPlayer) {
-            preStarterPlayer.play(() => { });
-        }
+        // Starter filler clip ("One second sir, I'm updating your request...")
+        // removed on request: it's a static pre-recorded file, so it always
+        // played fine even when ElevenLabs credit ran out — masking the real
+        // problem, which was that the actual answer's /tts call had no
+        // fallback and went silent after. The actual fix for that is in
+        // /tts server-side (edge-tts fallback on ElevenLabs failure); this
+        // just stops the now-unwanted filler from playing beforehand.
         timeoutId = setTimeout(() => controller.abort(), 300000);
         const res = await authFetch(`${API}${endpoint}`, {
             method: 'POST',
